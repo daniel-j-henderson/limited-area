@@ -1,0 +1,34 @@
+&interpolator_settings
+	Variables = 'ter', 'zz', 'areaCell', 'bdyMaskCell' !Desired variables to interpolate. Up to 20.
+	
+	
+	!Mesh Info File :: This file contains all the mesh information, like CellsOnCell or xCell and such, needed for the program.
+	!If all Info and Data can be found in the same file, put one of these fields as the filename, the other as a ' '.
+	
+	meshInfoFile = 'outputfile.nc' !filename.nc
+	
+	
+	!Mesh Data File :: This file contains all the mesh data for every field you wish to interpolate. It should have the same size/characteristics
+	!of the Info file, but need not contain mesh metadata like cell coordinates and such things.
+	!If all Info and Data can be found in the same file, put one of these fields as the filename, the other as a ' '.
+
+	meshDataFile = ' ' !filename.nc
+
+
+	outputfile = 'myNewFile.nc' !Whatever you'd like to call the output file
+	
+	gridW = 2000 !Number of E/W gridpoints
+	gridH = 1000 !Number of N/S gridpoints
+	gridHmin = -90.0 !Minimum of range of latitude
+	gridHmax = 90.0 !Maximum of range of latitude
+	gridWmin = 0.0 !Minimum of range of longitude
+	gridWmax = 360.0 !Maximum of range of longitude
+/
+
+&rotate_settings
+	original_latitude_degrees = 0.0
+	original_longitude_degrees = 0.0
+	new_latitude_degrees = 0.0
+	new_longitude_degrees = 0.0
+	birdseye_rotation_counter_clockwise_degrees = 0.0
+/

@@ -117,13 +117,16 @@
 
       call copy_dimensions(ncin, ncout)      
       call copy_attributes(ncin, ncout)
-      
+     
+      allocate(bdyMaskCellLocal(nCellsLocal)) 
       call compact_field_1dINT(bdyMaskCell, bdyMaskCellLocal, cell_map)
       call create_variable_1dINT(ncout, 'bdyMaskCell', 'nCells')
 
+      allocate(bdyMaskEdgeLocal(nEdgesLocal))
       call compact_field_1dINT(bdyMaskEdge, bdyMaskEdgeLocal, edge_map)
       call create_variable_1dINT(ncout, 'bdyMaskEdge', 'nEdges')
 
+      allocate(bdyMaskVertexLocal(nVerticesLocal))
       call compact_field_1dINT(bdyMaskVertex, bdyMaskVertexLocal, vertex_map)
       call create_variable_1dINT(ncout, 'bdyMaskVertex', 'nVertices')
 

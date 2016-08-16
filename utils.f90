@@ -212,8 +212,8 @@
       
       integer :: i
    
-      if (associated(newfield)) deallocate(newfield)
-      allocate(newfield(size(map)))
+      !if (associated(newfield)) deallocate(newfield)
+      !allocate(newfield(size(map)))
 
       do i=1, size(newfield)
          newfield(i) = field(map(i))
@@ -226,8 +226,8 @@
       
       integer :: i
    
-      if (associated(newfield)) deallocate(newfield)
-      allocate(newfield(size(map)))
+      !if (associated(newfield)) deallocate(newfield)
+      !allocate(newfield(size(map)))
 
       do i=1, size(newfield)
          newfield(i) = field(map(i))
@@ -242,8 +242,8 @@
       integer, dimension(2) :: dims
 
       dims = shape(field)
-      if (associated(newfield)) deallocate(newfield)
-      allocate(newfield(dims(1), size(map)))
+      !if (associated(newfield)) deallocate(newfield)
+      !allocate(newfield(dims(1), size(map)))
 
       do i=1, size(map)
       do j=1, dims(1)
@@ -260,8 +260,8 @@
       integer, dimension(3) :: dims
 
       dims = shape(field)
-      if (associated(newfield)) deallocate(newfield)
-      allocate(newfield(dims(1), dims(2), size(map)))
+      !if (associated(newfield)) deallocate(newfield)
+      !allocate(newfield(dims(1), dims(2), size(map)))
 
       do i=1, size(map)
          newfield(:,:,i) = field(:,:,map(i))
@@ -276,8 +276,8 @@
       integer, dimension(2) :: dims
 
       dims = shape(field)
-      if (associated(newfield)) deallocate(newfield)
-      allocate(newfield(dims(1), size(map)))
+      !if (associated(newfield)) deallocate(newfield)
+      !allocate(newfield(dims(1), size(map)))
 
       do i=1, size(map)
          newfield(:, i) = field(:, map(i))
@@ -292,8 +292,8 @@
       integer, dimension(3) :: dims
 
       dims = shape(field)
-      if (associated(newfield)) deallocate(newfield)
-      allocate(newfield(dims(1), dims(2), size(map)))
+      !if (associated(newfield)) deallocate(newfield)
+      !allocate(newfield(dims(1), dims(2), size(map)))
 
       do i=1, size(map)
          newfield(:, :, i) = field(:, :, map(i))

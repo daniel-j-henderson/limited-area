@@ -404,7 +404,7 @@ module mpas_file_manip
 
          if (dims(i) == 'Time') then
             write (0,*) "Currently, no support for copying variables dimensioned by time"
-            return
+            !return
          end if
 
          ierr = nf90_inq_dimid(ncout%ncid, dims(i), newdimids(i))
@@ -436,7 +436,7 @@ module mpas_file_manip
       class(ncfile) :: ncin, ncout
       character(len=*) :: var_name
 
-      integer :: ierr, var_id, ndims, nelems, xtype
+      integer :: ierr, i, var_id, ndims, nelems, xtype
       integer, dimension(:), pointer :: map, cell_map, edge_map, vertex_map, dimlens
       integer, dimension(:), pointer :: field_1dINT, newfield_1dINT
       integer, dimension(:,:), pointer :: field_2dINT, newfield_2dINT
@@ -444,6 +444,7 @@ module mpas_file_manip
       real(kind=RKIND), dimension(:), pointer :: field_1dREAL, newfield_1dREAL
       real(kind=RKIND), dimension(:,:), pointer :: field_2dREAL, newfield_2dREAL
       real(kind=RKIND), dimension(:,:,:), pointer :: field_3dREAL, newfield_3dREAL
+      logical :: has_time
 
       ierr = nf90_inq_varid(ncin%ncid, trim(var_name), var_id)
       if (ierr /= NF90_NOERR) then
@@ -466,6 +467,7 @@ module mpas_file_manip
 
       allocate(dimlens(ndims))
 
+      has_time = .false.
       if (xtype == NF90_INT) then
          select case(ndims)
          case(1)
@@ -488,32 +490,81 @@ module mpas_file_manip
             dimlens = shape(field_2dINT)
             if(dimlens(2) == ncin%nCells) then
                map => cell_map
+               has_time = .false.
+            else if (dimlens(1) == ncin%ncells) then
+               map => cell_map
+               has_time = .true.
             else if (dimlens(2) == ncin%nEdges) then
                map => edge_map
+               has_time = .false.
+            else if (dimlens(1) == ncin%nEdges) then
+               map => edge_map
+               has_time = .true.
             else if (dimlens(2) == ncin%nVertices) then
                map => vertex_map
+               has_time = .false.
+            else if (dimlens(1) == ncin%nVertices) then
+               map => vertex_map
+               has_time = .true.
             else
                write (0,*) "Not sure which map to use, copy data mode"
             end if
 
-            allocate(newfield_2dINT(dimlens(1), size(map)))
-            call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
+            if (has_time) then
+               allocate(newfield_2dINT(size(map), dimlens(2)))
+               write (0,*) "num time steps, other dim:", dimlens(2), dimlens(1)
+               do i = 1, dimlens(2)
+                  field_1dINT => field_2dINT(:,i)
+                  newfield_1dINT => newfield_2dINT(:,i)
+                  write (0,*) "A"
+                  call compact_field_1dINT(field_1dINT, newfield_1dINT, map)
+                  write (0,*) "B"
+               end do
+            else 
+               allocate(newfield_2dINT(dimlens(1), size(map)))
+               call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
+            end if
+
             call put_variable_2dINT(ncout, newfield_2dINT, var_name)
          case(3)
             call get_variable_3dINT(ncin, var_name, field_3dINT)
             dimlens = shape(field_3dINT)
             if(dimlens(3) == ncin%nCells) then
                map => cell_map
+               has_time = .false.
+            else if (dimlens(2) == ncin%ncells) then
+               map => cell_map
+               has_time = .true.
             else if (dimlens(3) == ncin%nEdges) then
                map => edge_map
+               has_time = .false.
+            else if (dimlens(2) == ncin%nEdges) then
+               map => edge_map
+               has_time = .true.
             else if (dimlens(3) == ncin%nVertices) then
                map => vertex_map
+               has_time = .false.
+            else if (dimlens(2) == ncin%nVertices) then
+               map => vertex_map
+               has_time = .true.
             else
                write (0,*) "Not sure which map to use, copy data mode"
             end if
 
-            allocate(newfield_3dINT(dimlens(1), dimlens(2), size(map)))
-            call compact_field_3dINT(field_3dINT, newfield_3dINT, map)
+            if (has_time) then
+               allocate(newfield_3dINT(dimlens(1), size(map), dimlens(3)))
+               do i = 1, dimlens(3)
+                  field_2dINT => field_3dINT(:,:,i)
+                  newfield_2dINT => newfield_3dINT(:,:,i)
+                  write (0,*) dimlens
+                  call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
+                  write (0,*) "B"
+               end do
+            else 
+               allocate(newfield_3dINT(dimlens(1), dimlens(2), size(map)))
+               call compact_field_3dINT(field_3dINT, newfield_3dINT, map)
+            end if
+
             call put_variable_3dINT(ncout, newfield_3dINT, var_name)
          case default 
             write (0,*) "Error in case for copy data mode"
@@ -538,34 +589,81 @@ module mpas_file_manip
          case(2)
             call get_variable_2dREAL(ncin, var_name, field_2dREAL)
             dimlens = shape(field_2dREAL)
+            has_time = .false.
             if(dimlens(2) == ncin%nCells) then
                map => cell_map
+               has_time = .false.
+            else if (dimlens(1) == ncin%nCells) then
+               map => cell_map
+               has_time = .true.
             else if (dimlens(2) == ncin%nEdges) then
                map => edge_map
+               has_time = .false.
+            else if (dimlens(1) == ncin%nEdges) then  
+               map => edge_map
+               has_time = .true.
             else if (dimlens(2) == ncin%nVertices) then
                map => vertex_map
+               has_time = .false.
+            else if (dimlens(1) == ncin%nVertices) then
+               map => vertex_map
+               has_time = .true.
             else
                write (0,*) "Not sure which map to use, copy data mode"
             end if
-
-            allocate(newfield_2dREAL(dimlens(1), size(map)))
-            call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
+            if (has_time) then
+               allocate(newfield_2dREAL(size(map), dimlens(2)))
+               write (0,*) "num time steps, other dim:", dimlens(2), dimlens(1)
+               do i = 1, dimlens(2)
+                  field_1dREAL => field_2dREAL(:,i)
+                  newfield_1dREAL => newfield_2dREAL(:,i)
+                  write (0,*) "A"
+                  call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, map)
+                  write (0,*) "B"
+               end do
+            else 
+               allocate(newfield_2dREAL(dimlens(1), size(map)))
+               call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
+            end if
             call put_variable_2dREAL(ncout, newfield_2dREAL, var_name)
          case(3)
             call get_variable_3dREAL(ncin, var_name, field_3dREAL)
             dimlens = shape(field_3dREAL)
             if(dimlens(3) == ncin%nCells) then
                map => cell_map
+               has_time = .false.
+            else if (dimlens(2) == ncin%nCells) then
+               map => cell_map
+               has_time = .true.
             else if (dimlens(3) == ncin%nEdges) then
                map => edge_map
+               has_time = .false.
+            else if (dimlens(2) == ncin%nEdges) then
+               map => edge_map
+               has_time = .true.
             else if (dimlens(3) == ncin%nVertices) then
                map => vertex_map
+               has_time = .false.
+            else if (dimlens(2) == ncin%nVertices) then
+               map => vertex_map
+               has_time = .true.
             else
                write (0,*) "Not sure which map to use, copy data mode"
             end if
 
-            allocate(newfield_3dREAL(dimlens(1), dimlens(2), size(map)))
-            call compact_field_3dREAL(field_3dREAL, newfield_3dREAL, map)
+            if (has_time) then
+               allocate(newfield_3dREAL(dimlens(1), size(map), dimlens(3)))
+               do i = 1, dimlens(3)
+                  field_2dREAL => field_3dREAL(:,:,i)
+                  newfield_2dREAL => newfield_3dREAL(:,:,i)
+                  write (0,*) dimlens
+                  call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
+                  write (0,*) "B"
+               end do
+            else 
+               allocate(newfield_3dREAL(dimlens(1), dimlens(2), size(map)))
+               call compact_field_3dREAL(field_3dREAL, newfield_3dREAL, map)
+            end if
             call put_variable_3dREAL(ncout, newfield_3dREAL, var_name)
          case default 
             write (0,*) "Error in case for copy data mode"
@@ -812,19 +910,27 @@ module mpas_file_manip
       do i=1, size(static_vars_1dINT) 
          call get_variable_1dINT(ncin, static_vars_1dINT(i), field_1dINT)
          if (size(field_1dINT) == ncin%nCells) then
+            write (0,*) "A"
+            allocate(newfield_1dINT(ncout%nCells))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, cell_map)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          else if (size(field_1dINT) == ncin%nEdges) then
+            write (0,*) "B"
+            allocate(newfield_1dINT(ncout%nEdges))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, edge_map)
             if (ncout%nEdges .ne. size(newfield_1dINT)) write (0,*) 'dims dont match, nEdges, size(field):', ncout%nEdges, size(newfield_1dINT)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          else if (size(field_1dINT) == ncin%nVertices) then
+            write (0,*) "C"
+            allocate(newfield_1dINT(ncout%nVertices))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, vertex_map)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          end if 
+         deallocate(newfield_1dINT)
 
       end do
 
+      write (0,*) "D"
       do i=1, size(static_vars_2dINT)
          call get_variable_2dINT(ncin, static_vars_2dINT(i), field_2dINT)
 
@@ -850,26 +956,31 @@ module mpas_file_manip
             write (0,*) "Not sure which imap to use"
          end if
 
-
+         allocate(newfield_2dINT(dimensions(1), size(map)))
          call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
          call reindex_field_2dINT(newfield_2dINT, imap)
          where(newfield_2dINT == 0) newfield_2dINT = 1
          call put_variable_2dINT(ncout, newfield_2dINT, static_vars_2dINT(i))
+         deallocate(newfield_2dINT)
       end do
 
 
       do i=1, size(static_vars_1dREAL)
          call get_variable_1dREAL(ncin, static_vars_1dREAL(i), field_1dREAL)
          if (size(field_1dREAL) == ncin%nCells) then
+            allocate(newfield_1dREAL(size(cell_map)))
             call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, cell_map)
             call put_variable_1dREAL(ncout, newfield_1dREAL, static_vars_1dREAL(i))
          else if (size(field_1dREAL) == ncin%nEdges) then
+            allocate(newfield_1dREAL(size(edge_map)))
             call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, edge_map)
             call put_variable_1dREAL(ncout, newfield_1dREAL, static_vars_1dREAL(i))
          else if (size(field_1dREAL) == ncin%nVertices) then
+            allocate(newfield_1dREAL(size(vertex_map)))
             call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, vertex_map)
             call put_variable_1dREAL(ncout, newfield_1dREAL, static_vars_1dREAL(i))
          end if 
+         deallocate(newfield_1dREAL)
       end do
 
 
@@ -887,10 +998,12 @@ module mpas_file_manip
             map => vertex_map
             imap => ivertex_map
          end if 
-
+         
+         allocate(newfield_2dREAL(dimensions(1), size(map)))
          call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
 
          call put_variable_2dREAL(ncout, newfield_2dREAL, static_vars_2dREAL(i))
+         deallocate(newfield_2dREAL)
       end do
 
    end subroutine copyandcompact_static_fields

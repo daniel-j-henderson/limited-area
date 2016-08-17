@@ -379,7 +379,6 @@ module mpas_file_manip
 
 
       if (ndims == 0) then
-         write (0,*) "Found const "//trim(var_name)
          ierr = nf90_def_var(ncout%ncid, var_name, xtype, varid=var_id)
          if (ierr /= NF90_NOERR) then
             write(0,*) '*********************************************************************************'
@@ -415,11 +414,6 @@ module mpas_file_manip
             write (0,*) "Trying to copy a variable whose dimensions are not in ncout"
             return
          end if 
-
-         if (dims(i) == 'Time') then
-            write (0,*) "Currently, no support for copying variables dimensioned by time"
-            !return
-         end if
 
          ierr = nf90_inq_dimid(ncout%ncid, dims(i), newdimids(i))
          if (ierr /= NF90_NOERR) then
@@ -556,13 +550,10 @@ module mpas_file_manip
 
             if (has_time) then
                allocate(newfield_2dINT(size(map), dimlens(2)))
-               write (0,*) "num time steps, other dim:", dimlens(2), dimlens(1)
                do i = 1, dimlens(2)
                   field_1dINT => field_2dINT(:,i)
                   newfield_1dINT => newfield_2dINT(:,i)
-                  write (0,*) "A"
                   call compact_field_1dINT(field_1dINT, newfield_1dINT, map)
-                  write (0,*) "B"
                end do
             else 
                allocate(newfield_2dINT(dimlens(1), size(map)))
@@ -601,9 +592,7 @@ module mpas_file_manip
                do i = 1, dimlens(3)
                   field_2dINT => field_3dINT(:,:,i)
                   newfield_2dINT => newfield_3dINT(:,:,i)
-                  write (0,*) dimlens
                   call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
-                  write (0,*) "B"
                end do
             else 
                allocate(newfield_3dINT(dimlens(1), dimlens(2), size(map)))
@@ -660,13 +649,10 @@ module mpas_file_manip
             end if
             if (has_time) then
                allocate(newfield_2dREAL(size(map), dimlens(2)))
-               write (0,*) "num time steps, other dim:", dimlens(2), dimlens(1)
                do i = 1, dimlens(2)
                   field_1dREAL => field_2dREAL(:,i)
                   newfield_1dREAL => newfield_2dREAL(:,i)
-                  write (0,*) "A"
                   call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, map)
-                  write (0,*) "B"
                end do
             else 
                allocate(newfield_2dREAL(dimlens(1), size(map)))
@@ -703,9 +689,7 @@ module mpas_file_manip
                do i = 1, dimlens(3)
                   field_2dREAL => field_3dREAL(:,:,i)
                   newfield_2dREAL => newfield_3dREAL(:,:,i)
-                  write (0,*) dimlens
                   call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
-                  write (0,*) "B"
                end do
             else 
                allocate(newfield_3dREAL(dimlens(1), dimlens(2), size(map)))
@@ -957,18 +941,15 @@ module mpas_file_manip
       do i=1, size(static_vars_1dINT) 
          call get_variable_1dINT(ncin, static_vars_1dINT(i), field_1dINT)
          if (size(field_1dINT) == ncin%nCells) then
-            write (0,*) "A"
             allocate(newfield_1dINT(ncout%nCells))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, cell_map)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          else if (size(field_1dINT) == ncin%nEdges) then
-            write (0,*) "B"
             allocate(newfield_1dINT(ncout%nEdges))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, edge_map)
             if (ncout%nEdges .ne. size(newfield_1dINT)) write (0,*) 'dims dont match, nEdges, size(field):', ncout%nEdges, size(newfield_1dINT)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          else if (size(field_1dINT) == ncin%nVertices) then
-            write (0,*) "C"
             allocate(newfield_1dINT(ncout%nVertices))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, vertex_map)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
@@ -977,7 +958,6 @@ module mpas_file_manip
 
       end do
 
-      write (0,*) "D"
       do i=1, size(static_vars_2dINT)
          call get_variable_2dINT(ncin, static_vars_2dINT(i), field_2dINT)
 
@@ -1251,7 +1231,7 @@ module mpas_file_manip
       integer :: var_id, n, ierr
       integer, dimension(1) :: dim_ids
 
-      if (associated(field)) deallocate(field)
+      !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1300,7 +1280,7 @@ module mpas_file_manip
       integer :: var_id, n1, n2, ierr
       integer, dimension(2) :: dim_ids
 
-      if (associated(field)) deallocate(field)
+      !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1357,7 +1337,7 @@ module mpas_file_manip
       integer :: var_id, n1, n2, n3, ierr
       integer, dimension(3) :: dim_ids
 
-      if (associated(field)) deallocate(field)
+      !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1422,7 +1402,7 @@ module mpas_file_manip
       integer :: var_id, n, ierr, xtype
       integer, dimension(1) :: dim_ids
 
-      if (associated(field)) deallocate(field)
+      !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1473,7 +1453,7 @@ module mpas_file_manip
       integer :: var_id, n1, n2, ierr
       integer, dimension(2) :: dim_ids
 
-      if (associated(field)) deallocate(field)
+      !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1530,7 +1510,7 @@ module mpas_file_manip
       integer :: var_id, n1, n2, n3, ierr
       integer, dimension(3) :: dim_ids
 
-      if (associated(field)) deallocate(field)
+      !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1609,16 +1589,26 @@ module mpas_file_manip
    
       type(ncfile) :: ncin, ncout
 
-      integer :: ierr
+      integer :: ierr, i
+      character(len=StrKIND) :: att_name
 
-      ierr = nf90_copy_att(ncin%ncid, NF90_GLOBAL, 'sphere_radius', ncout%ncid, NF90_GLOBAL)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error copying attributes' 
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      do i=1,ncin%natts
+         ierr = nf90_inq_attname(ncin%ncid, NF90_GLOBAL, i, att_name)
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error inquiring attribute ', i 
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+         end if
+         ierr = nf90_copy_att(ncin%ncid, NF90_GLOBAL, att_name, ncout%ncid, NF90_GLOBAL)
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error copying attribute '//trim(att_name) 
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+            stop
+         end if
+      end do
    end subroutine copy_attributes
 
 

@@ -16,21 +16,15 @@ endif
 gfortran:
 		( $(MAKE) all \
         "FC = gfortran" \
-        "FFLAGS = -g -fdump-core -fbacktrace -ffree-form --std=legacy -ffree-line-length-none -fdefault-real-8" \
+        "FFLAGS = -ffree-form --std=legacy -ffree-line-length-none -fdefault-real-8" \
 		"LDFLAGS = ")	
 
 ifort:
 		( $(MAKE) all \
         "FC = ifort" \
-        "FFLAGS = -g -debug all -traceback -autodouble" \
+        "FFLAGS = -autodouble" \
 		"LDFLAGS = ")		
 		
-pgfortran:
-		( $(MAKE) all \
-        "FC = pgfortran" \
-         "FFLAGS = " \
-		"LDFLAGS = ")	
-
 
 
 all: limited_area.o

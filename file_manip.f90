@@ -376,6 +376,20 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
          stop
       end if
+
+
+      if (ndims == 0) then
+         write (0,*) "Found const "//trim(var_name)
+         ierr = nf90_def_var(ncout%ncid, var_name, xtype, varid=var_id)
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error defining variable '//trim(var_name)//' in copy def mode'
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+            stop
+         end if
+         return
+      end if
    
       allocate(dimids(ndims), dims(ndims), newdimids(ndims))
 
@@ -446,6 +460,8 @@ module mpas_file_manip
       real(kind=RKIND), dimension(:,:,:), pointer :: field_3dREAL, newfield_3dREAL
       logical :: has_time
 
+      real(kind=RKIND) :: const
+
       ierr = nf90_inq_varid(ncin%ncid, trim(var_name), var_id)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
@@ -464,6 +480,33 @@ module mpas_file_manip
          stop
       end if
 
+      if (ndims == 0) then
+         ierr = nf90_get_var(ncin%ncid, var_id, const)
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error getting variable '//trim(var_name)//' in '//ncin%filename
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+            stop
+         end if
+         ierr = nf90_inq_varid(ncout%ncid, trim(var_name), var_id)
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error inquiring varID of '//trim(var_name)//' in copy def mode'
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+            stop
+         end if
+         ierr = nf90_put_var(ncout%ncid, var_id, const)
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error putting variable '//trim(var_name)//' putting constant var'
+            write(0,*) 'ierr = ', ierr
+            write(0,*) 'shape(field):',  ncout%nEdges
+            write(0,*) '*********************************************************************************'
+         end if  
+         return
+      end if
 
       allocate(dimlens(ndims))
 
@@ -479,7 +522,8 @@ module mpas_file_manip
             else if (size(field_1dINT) == ncin%nVertices) then
                map => vertex_map
             else
-               write (0,*) "Not sure which map to use, copy data mode"
+            !   write (0,*) "Not sure which map to use, copy data mode"
+               call put_variable_1dINT(ncout, field_1dINT, var_name)
             end if
 
             allocate(newfield_1dINT(size(map)))
@@ -523,6 +567,7 @@ module mpas_file_manip
             else 
                allocate(newfield_2dINT(dimlens(1), size(map)))
                call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
+               return
             end if
 
             call put_variable_2dINT(ncout, newfield_2dINT, var_name)
@@ -580,7 +625,9 @@ module mpas_file_manip
             else if (size(field_1dREAL) == ncin%nVertices) then
                map => vertex_map
             else
-               write (0,*) "Not sure which map to use, copy data mode"
+               ! write (0,*) "Not sure which map to use, copy data mode"
+               call put_variable_1dREAL(ncout, field_1dREAL, var_name)
+               return
             end if
 
             allocate(newfield_1dREAL(size(map)))

@@ -51,10 +51,31 @@ module mpas_file_manip
       procedure :: add_att_record
       procedure :: contains_elem
       procedure :: is_open
+      procedure :: clean
 
    end type ncfile
 
    contains
+
+   subroutine clean(this)
+      implicit none
+      
+      class(ncfile) :: this
+      
+      if (associated(this%dims)) deallocate(this%dims)
+      if (associated(this%vars)) deallocate(this%vars)
+      if (associated(this%atts)) deallocate(this%atts)
+
+      this%filename = ' '
+      this%ncid = 0
+      this%ndims = 0
+      this%nvars = 0
+      this%natts = 0
+      this%nCells = 0
+      this%nEdges = 0
+      this%nVertices = 0
+
+   end subroutine clean
 
    logical function is_open(this)
       implicit none
@@ -452,6 +473,9 @@ module mpas_file_manip
       real(kind=RKIND), dimension(:), pointer :: field_1dREAL, newfield_1dREAL
       real(kind=RKIND), dimension(:,:), pointer :: field_2dREAL, newfield_2dREAL
       real(kind=RKIND), dimension(:,:,:), pointer :: field_3dREAL, newfield_3dREAL
+      character(len=StrKIND) :: field_1dCHAR
+      character(len=StrKIND), dimension(:), pointer :: field_2dCHAR
+      character(len=StrKIND), dimension(:,:), pointer :: field_3dCHAR
       logical :: has_time
 
       real(kind=RKIND) :: const
@@ -698,6 +722,20 @@ module mpas_file_manip
             call put_variable_3dREAL(ncout, newfield_3dREAL, var_name)
          case default 
             write (0,*) "Error in case for copy data mode"
+         end select
+      else if (xtype == NF90_CHAR) then
+         select case(ndims)
+         case(1)
+            call get_variable_1dCHAR(ncin, var_name, field_1dCHAR)
+            call put_variable_1dCHAR(ncout, field_1dCHAR, var_name)
+         case(2)
+            call get_variable_2dCHAR(ncin, var_name, field_2dCHAR)
+            call put_variable_2dCHAR(ncout, field_2dCHAR, var_name)
+         case(3)
+            call get_variable_3dCHAR(ncin, var_name, field_3dCHAR)
+            call put_variable_3dCHAR(ncout, field_3dCHAR, var_name)
+         case default
+            write (0,*) "Variable "//trim(var_name)//" is not supported"
          end select
       else
          write (0,*) "in copy data mode, neither real nor int"
@@ -1221,6 +1259,126 @@ module mpas_file_manip
       end if  
    end subroutine put_variable_3dINT
 
+   subroutine put_variable_1dCHAR(f, field, var_name)
+      type(ncfile) :: f
+      character(len=StrKIND) :: field
+      character(len=StrKIND) :: var_name
+
+      integer :: var_id, n, i
+      integer, dimension(2) :: temp
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      do i=1, n
+         ierr = nf90_put_var(f%ncid, var_id, trim(field))
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dCHAR'
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+         end if  
+      end do
+   end subroutine put_variable_1dCHAR
+
+   subroutine put_variable_2dCHAR(f, field, var_name)
+      type(ncfile) :: f
+      character(len=StrKIND), dimension(:), pointer :: field
+      character(len=StrKIND) :: var_name
+
+      integer :: var_id, n, i
+      integer, dimension(2) :: temp
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, temp(2), len=n)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+      
+      do i=1, n
+         ierr = nf90_put_var(f%ncid, var_id, trim(field(i)))
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dCHAR'
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+         end if  
+      end do
+   end subroutine put_variable_2dCHAR
+
+   subroutine put_variable_3dCHAR(f, field, var_name)
+      type(ncfile) :: f
+      character(len=StrKIND), dimension(:,:), pointer :: field
+      character(len=StrKIND) :: var_name
+
+      integer :: var_id, n1, n2, i, j
+      integer, dimension(3) :: temp
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, temp(2), len=n1)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, temp(3), len=n2)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+      
+      do i=1, n2
+      do j=1, n1
+         ierr = nf90_put_var(f%ncid, var_id, trim(field(j,i)))
+         if (ierr /= NF90_NOERR) then
+            write(0,*) '*********************************************************************************'
+            write(0,*) 'Error putting variable '//trim(var_name)//' in put 3dCHAR'
+            write(0,*) 'ierr = ', ierr
+            write(0,*) '*********************************************************************************'
+         end if  
+      end do
+      end do
+   end subroutine put_variable_3dCHAR
+
    subroutine get_variable_1dINT(f, var_name, field)
       implicit none
       
@@ -1565,6 +1723,161 @@ module mpas_file_manip
       
    end subroutine get_variable_3dREAL
 
+   subroutine get_variable_1dCHAR(f, var_name, field)
+      implicit none
+
+      type(ncfile) :: f
+      character(len=*), intent(in) :: var_name
+      character(len=StrKIND), intent(out) :: field
+
+      integer :: var_id, ierr
+
+      !if (associated(field)) deallocate(field)
+      
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+      ierr = nf90_get_var(f%ncid, var_id, field)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+   end subroutine get_variable_1dCHAR
+
+   subroutine get_variable_2dCHAR(f, var_name, field)
+      implicit none
+
+      type(ncfile) :: f
+      character(len=*), intent(in) :: var_name
+      character(len=StrKIND), dimension(:), pointer, intent(inout) :: field
+
+      integer :: var_id, n1, n2, ierr
+      integer, dimension(2) :: dim_ids
+
+      !if (associated(field)) deallocate(field)
+      
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if 
+
+      ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      allocate(field(n2))
+      field(:) = ' '
+      ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1/), count = (/n1, n2/))
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+      
+   end subroutine get_variable_2dCHAR
+
+   subroutine get_variable_3dCHAR(f, var_name, field)
+      implicit none
+
+      type(ncfile) :: f
+      character(len=*), intent(in) :: var_name
+      character(len=StrKIND), dimension(:,:), pointer, intent(inout) :: field
+
+      integer :: var_id, n1, n2, n3, ierr
+      integer, dimension(3) :: dim_ids
+
+      
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if 
+
+      ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring dimension with id ', dim_ids(2), ' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, dim_ids(3), len=n3)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring dimension with id ', dim_ids(3), ' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      allocate(field(n2, n3))
+      ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1,1/), count = (/n1, n2, n3/))
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+      
+   end subroutine get_variable_3dCHAR
+
    subroutine get_attribute_REAL(f, att_name, field)
       implicit none
       
@@ -1626,6 +1939,7 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
          stop
       end if
+      call f%clean()
    end subroutine
 
 end module mpas_file_manip 

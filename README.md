@@ -9,6 +9,11 @@ Just make the makefile with your preferred compiler as the target (I support ifo
   - specify the .nc file in which all the static variables can be found
   - specify the output filename
   - optionally, provide up to 20 variables from up to 3 different files that you'd like to have in your output
+  and/or
+  - use command line arguments, eg. ./limited_area -i static.nc -file_a file.nc -vars_a ter pressure -o output.nc
+  - use command line argument -nostatic to skip the output of static fields
+
+  RELATED MODE: If you'd like to take a lot of related files on the same grid (for instance, a few dozen update files or boundary condition files) and make a limited-area version of each without re-running the program from scratch each time, simply use the -related_files <*> argument on the command line. This may not be specified in the namelist. This will create a limited-area version of each of the files in the related_files argument, each including the variables specified in the vars_r namelist/command line option. The output files will be named with the -o or output_filename option field appended to the input file name.  
 
 2. Provide a list of points that will make up the boundary of your limited area mesh
   - these points should be in degrees

@@ -60,9 +60,9 @@
       do i=1, npts
          read(10,*) pt(1), pt(2)
          pt = pt * PI / 180.0
-         call con_lx(pt(1), pt(2), radius, pt(1), pt(2), pt(3))
-         boundary_cells(i) = cell_tree%nearest_cell(pt)
-         !boundary_cells(i) = nearest_cell_path(pt(1), pt(2), merge(boundary_cells(i-1), 1, i > 1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+         !call con_lx(pt(1), pt(2), radius, pt(1), pt(2), pt(3))
+         !boundary_cells(i) = cell_tree%nearest_cell(pt)
+         boundary_cells(i) = nearest_cell_path(pt(1), pt(2), merge(boundary_cells(i-1), 1, i > 1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
          !write (0,*) latCell(boundary_cells(i)) * 180.0 / PI, lonCell(boundary_cells(i)) * 180.0 / PI
       end do
 

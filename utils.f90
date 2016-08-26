@@ -76,45 +76,71 @@
 
       allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
-      do i=1,npts
-         ! For each path segment of adjacent boundary points...
+
+      ! Greedy Algorithm :: Alternative to the Dijkstra Algorithm
+      do i=1, npts
          source_cell = boundary_cells(i)
          target_cell = boundary_cells(mod(i, npts) + 1)
-         call q%create_heap(100, nCells, source_cell, real(0.0, kind=RKIND)) 
-         distance = huge(dist)
-         prev = 0
-         unvisited = .true.
-         distance(source_cell) = 0.0
-         ! ...Perform Dijkstra's Algorithm to find the shortest path
-         do j=1,nCells
-            iCell = q%extract_min()
-            if (iCell == target_cell) exit
-            unvisited(iCell) = .false.
-            do k = 1, nEdgesOnCell(iCell)
-               v = cellsOnCell(k, iCell)
-               dist = distance(iCell) + sphere_distance(latCell(iCell), lonCell(iCell), latCell(v), lonCell(v), radius)
-               if (dist < distance(v)) then
-                  distance(v) = dist
-                  if (q%index_array(v) == 0) then
-                     call q%insert(v, dist)
-                  else 
-                     call q%decrease_priority(v, dist)
-                  end if
-                  prev(v) = iCell
+         iCell = source_cell
+         do while(iCell /= target_cell) 
+            bdyMaskCell(iCell) = INSIDE
+            mindist = huge(1.0)
+            do j=1, nEdgesOnCell(iCell)
+               v = cellsOnCell(j, iCell)
+               dist = sphere_distance(latCell(v), lonCell(v), &
+                                      latCell(target_cell), lonCell(target_cell), radius)
+               if (dist < mindist) then
+                  mindist = dist
+                  k = v
                end if
             end do
+            iCell = k
          end do
-         iCell = target_cell
-         do while(iCell .ne. source_cell)
-            bdyMaskCell(iCell) = INSIDE
-            iCell = prev(iCell)
-         end do
-         bdyMaskCell(source_cell) = INSIDE
-         call q%delete_heap()
       end do
+                  
+
+
+      ! Dijkstra's Algorithm :: Produces correct boundaries, but they can
+      ! sometimes cut into the desired area and don't necessarily follow the
+      ! 'straight line' from source to destination
+!      do i=1,npts
+!         ! For each path segment of adjacent boundary points...
+!         source_cell = boundary_cells(i)
+!         target_cell = boundary_cells(mod(i, npts) + 1)
+!         call q%create_heap(100, nCells, source_cell, real(0.0, kind=RKIND)) 
+!         distance = huge(dist)
+!         prev = 0
+!         unvisited = .true.
+!         distance(source_cell) = 0.0
+!         ! ...Perform Dijkstra's Algorithm to find the shortest path
+!         do j=1,nCells
+!            iCell = q%extract_min()
+!            if (iCell == target_cell) exit
+!            unvisited(iCell) = .false.
+!            do k = 1, nEdgesOnCell(iCell)
+!               v = cellsOnCell(k, iCell)
+!               dist = distance(iCell) + sphere_distance(latCell(iCell), lonCell(iCell), latCell(v), lonCell(v), radius)
+!               if (dist < distance(v)) then
+!                  distance(v) = dist
+!                  if (q%index_array(v) == 0) then
+!                     call q%insert(v, dist)
+!                  else 
+!                     call q%decrease_priority(v, dist)
+!                  end if
+!                  prev(v) = iCell
+!               end if
+!            end do
+!         end do
+!         iCell = target_cell
+!         do while(iCell .ne. source_cell)
+!            bdyMaskCell(iCell) = INSIDE
+!            iCell = prev(iCell)
+!         end do
+!         bdyMaskCell(source_cell) = INSIDE
+!         call q%delete_heap()
+!      end do
       
       call system_clock(t3)
-      write (0,*) "   Time to do Dijkstra's Algorithm with the heap: ", real(t3-t2) / real(rate) 
 
       call system_clock(t2)
       bdyMaskCell(inside_cell) = INSIDE
@@ -129,12 +155,12 @@
 
 
       ! Optionally make the boundary points and nearby cells a different value so they stand out in ncview, for testing purposes
-      do i=1, npts
-         bdyMaskCell(boundary_cells(i)) = 10
+!      do i=1, npts
+!         bdyMaskCell(boundary_cells(i)) = 10
 !         do j=1, nEdgesOnCell(boundary_cells(i))
 !            bdyMaskCell(cellsOnCell(j, boundary_cells(i))) = 10
 !         end do
-      end do
+!      end do
       
       write (0,*) "   Time for whole find_boundary_cells routine: ", real(t3-t1) / real(rate)
 

@@ -59,7 +59,8 @@ module kd_tree_mod
                 call this%left_child%nn_search(mod(axs,k)+1, k, id, q, dist)
         end if
 
-        temp = distance2(q, this%coords)
+        !temp = distance2(q, this%coords)
+        temp = arc_distance(q, this%coords)
         if(temp < dist) then
             dist = temp
             id = this%id
@@ -77,6 +78,7 @@ module kd_tree_mod
         do i=1,k
             distance2 = distance2 + (a(i) - b(i))**2
         end do
+        distance2 = sqrt(distance2)
     end function distance2
 
     

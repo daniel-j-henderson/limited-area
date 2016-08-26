@@ -7,7 +7,6 @@
       implicit none
       
       real (kind=RKIND), dimension(:), pointer :: latCell, lonCell
-      ! real (kind=RKIND), dimension(:), pointer :: xCell, yCell, zCell
       integer :: nCells, nCellsLocal, nEdges, nEdgesLocal, nVertices, nVerticesLocal, maxEdges, vertexDegree
       integer, dimension(:), pointer :: bdyMaskCell, bdyMaskEdge, bdyMaskVertex, &
                                         bdyMaskCellLocal, bdyMaskEdgeLocal, bdyMaskVertexLocal, nEdgesOnCell
@@ -25,7 +24,6 @@
       logical :: related = .false., nostatic = .false.
 
       namelist /filesandvariables/ static_file, file_a, vars_a, file_b, vars_b, file_c, vars_c, vars_r, output_filename     
-      namelist /test/ testing 
 
       aint_present = access(name='namelist.limitedarea', mode=' ')      
       if (aint_present == 0) then
@@ -131,20 +129,6 @@
 
       end do
 
-!      write (0,*) trim(file_a)
-!      write (0,*) trim(file_b)
-!      write (0,*) trim(file_c)
-!      do i=1, NVARS_MAX_NAMELIST
-!         write (0,*) trim(vars_a(i))
-!      end do
-!      do i=1, NVARS_MAX_NAMELIST
-!         write (0,*) trim(vars_b(i))
-!      end do
-!      do i=1, NVARS_MAX_NAMELIST
-!         write (0,*) trim(vars_c(i))
-!      end do
-!      write (0,*) trim(output_filename)
-!      write (0,*) trim(static_file)
       
       if (len(trim(static_file)) == 0) then
          write (0,*) "==========================================================="
@@ -184,7 +168,6 @@
          call open_mpas_file(ncc, 'NF90_NOWRITE')
       end if
       
-      !write (0,*) "ncids:", ncin%ncid, nca%ncid, ncout%ncid
       write (0,*) "Reading dimensions and variables..."
       call get_dimension(ncin, 'nCells', nCells)
       call get_dimension(ncin, 'nEdges', nEdges)
@@ -200,15 +183,10 @@
          
       call get_variable_1dREAL(ncin, 'latCell', latCell)
       call get_variable_1dREAL(ncin, 'lonCell', lonCell)
-      !call get_variable_1dREAL(ncin, 'xCell', xCell)
-      !call get_variable_1dREAL(ncin, 'yCell', yCell)
-      !call get_variable_1dREAL(ncin, 'zCell', zCell)
-
  
       allocate(bdyMaskCell(nCells), bdyMaskEdge(nEdges), bdyMaskVertex(nVertices), source=0)
    
       write (0,*) "Creating boundary..."
-      ! call create_boundary(nCells, radius, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell, xCell, yCell, zCell)
       call create_boundary(nCells, 1.0, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
       do i=1, nEdges
@@ -232,6 +210,7 @@
       write (0,*) "nCells, edges, vertices", ncin%nCells, ncin%nEdges, ncin%nVertices
       write (0,*) "nCellsLocal, nEdgesLocal, nVerticesLocal:", nCellsLocal, nEdgesLocal, nVerticesLocal
 
+      ! If in related mode, nFiles_a is number of related files, else 1
       do iFile=1, nFiles_a
          if(related) then
             ncout%filename = trim(output_filename)//trim(files(iFile))

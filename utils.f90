@@ -62,6 +62,8 @@
          pt = pt * PI / 180.0
          call con_lx(pt(1), pt(2), radius, pt(1), pt(2), pt(3))
          boundary_cells(i) = cell_tree%nearest_cell(pt)
+         !boundary_cells(i) = nearest_cell_path(pt(1), pt(2), merge(boundary_cells(i-1), 1, i > 1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+         write (0,*) latCell(boundary_cells(i)) * 180.0 / PI, lonCell(boundary_cells(i)) * 180.0 / PI
       end do
 
       read(10,*) pt(1), pt(2)
@@ -346,5 +348,47 @@
       x = radius * cos(lon) * cos(lat)
       y = radius * sin(lon) * cos(lat)
    end subroutine con_lx
+
+!==================================================================================================
+ integer function nearest_cell_path(target_lat, target_lon, start_cell, nCells, maxEdges, &
+                               nEdgesOnCell, cellsOnCell, latCell, lonCell)
+!==================================================================================================
+ implicit none
+
+ real (kind=RKIND), intent(in) :: target_lat, target_lon
+ integer, intent(in) :: start_cell
+ integer, intent(in) :: nCells, maxEdges
+ integer, dimension(nCells), intent(in) :: nEdgesOnCell
+ integer, dimension(maxEdges,nCells), intent(in) :: cellsOnCell
+ real (kind=RKIND), dimension(nCells), intent(in) :: latCell, lonCell
+
+ integer :: i
+ integer :: iCell
+ integer :: current_cell
+ real (kind=RKIND) :: current_distance, d
+ real (kind=RKIND) :: nearest_distance
+
+ nearest_cell_path = start_cell
+ current_cell = -1
+
+ do while (nearest_cell_path /= current_cell)
+    current_cell = nearest_cell_path
+    current_distance = sphere_distance(latCell(current_cell), lonCell(current_cell), target_lat, &
+                                       target_lon, 1.0_RKIND)
+    nearest_cell_path = current_cell
+    nearest_distance = current_distance
+    do i = 1, nEdgesOnCell(current_cell)
+       iCell = cellsOnCell(i,current_cell)
+       if (iCell <= nCells) then
+          d = sphere_distance(latCell(iCell), lonCell(iCell), target_lat, target_lon, 1.0_RKIND)
+          if (d < nearest_distance) then
+             nearest_cell_path = iCell
+             nearest_distance = d
+          end if
+       end if
+    end do
+ end do
+
+ end function nearest_cell_path
 
 end module utils

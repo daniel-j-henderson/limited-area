@@ -25,9 +25,9 @@
       integer, dimension(:,:), pointer, intent(in) :: cellsOnCell
       integer, dimension(:), allocatable :: boundary_cells
       real (kind=RKIND), dimension(:,:), allocatable :: cellpoints 
-      real (kind=RKIND) :: mindist, dist, PI=3.141592653589793
+      real (kind=RKIND) :: mindist, dist, angle, minangle, PI=3.141592653589793
       real (kind=RKIND), intent(in) :: radius
-      real (kind=RKIND), dimension(3) :: pt
+      real (kind=RKIND), dimension(3) :: pt, pta, ptb
 
       integer, dimension(:), allocatable :: prev
       logical, dimension(:), allocatable :: unvisited
@@ -77,26 +77,59 @@
       allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
 
-      ! Greedy Algorithm :: Alternative to the Dijkstra Algorithm
+      ! Follow-the-line Algorithm :: Alternative to the Greedy Algorithm
       do i=1, npts
          source_cell = boundary_cells(i)
          target_cell = boundary_cells(mod(i, npts) + 1)
+         call con_lx(latCell(source_cell), lonCell(source_cell), radius, pta(1), pta(2), pta(3))
+         call con_lx(latCell(target_cell), lonCell(target_cell), radius, ptb(1), ptb(2), ptb(3))
          iCell = source_cell
          do while(iCell /= target_cell) 
-            bdyMaskCell(iCell) = INSIDE
-            mindist = huge(1.0)
+            bdyMaskCell(iCell) = INSIDE 
+            minangle = huge(1.0) !These angles will be angles between the
+                                 !cell center and the great-circle arc from source to target
+            mindist = sphere_distance(latCell(iCell), lonCell(iCell),&
+                                      latCell(target_cell), lonCell(target_cell), radius)
             do j=1, nEdgesOnCell(iCell)
                v = cellsOnCell(j, iCell)
                dist = sphere_distance(latCell(v), lonCell(v), &
                                       latCell(target_cell), lonCell(target_cell), radius)
-               if (dist < mindist) then
-                  mindist = dist
+               if (dist > mindist) cycle
+               call con_lx(latCell(v), lonCell(v), radius, pt(1), pt(2), pt(3))
+               pta = cross(pta / mag(pta), ptb / mag(ptb))
+               pta = pta / mag(pta)
+               angle = dot(pta, pt)
+               if(acos(angle) < 0 .or. acos(angle) > PI) write (0,*) acos(angle), PI/2
+               angle = abs(PI / 2 - acos(angle))
+               if (angle < minangle) then
+                  minangle = angle
                   k = v
                end if
             end do
             iCell = k
          end do
       end do
+
+      ! Greedy Algorithm :: Alternative to the Dijkstra Algorithm
+!      do i=1, npts
+!         source_cell = boundary_cells(i)
+!         target_cell = boundary_cells(mod(i, npts) + 1)
+!         iCell = source_cell
+!         do while(iCell /= target_cell) 
+!            bdyMaskCell(iCell) = INSIDE
+!            mindist = huge(1.0)
+!            do j=1, nEdgesOnCell(iCell)
+!               v = cellsOnCell(j, iCell)
+!               dist = sphere_distance(latCell(v), lonCell(v), &
+!                                      latCell(target_cell), lonCell(target_cell), radius)
+!               if (dist < mindist) then
+!                  mindist = dist
+!                  k = v
+!               end if
+!            end do
+!            iCell = k
+!         end do
+!      end do
                   
 
 
@@ -155,12 +188,12 @@
 
 
       ! Optionally make the boundary points and nearby cells a different value so they stand out in ncview, for testing purposes
-!      do i=1, npts
-!         bdyMaskCell(boundary_cells(i)) = 10
+      do i=1, npts
+         bdyMaskCell(boundary_cells(i)) = 10
 !         do j=1, nEdgesOnCell(boundary_cells(i))
 !            bdyMaskCell(cellsOnCell(j, boundary_cells(i))) = 10
 !         end do
-!      end do
+      end do
       
       write (0,*) "   Time for whole find_boundary_cells routine: ", real(t3-t1) / real(rate)
 
@@ -416,5 +449,36 @@
  end do
 
  end function nearest_cell_path
+
+ function cross(u, v)
+ implicit none
+
+ real (kind=RKIND), dimension(3), intent(in) :: u, v
+ real (kind=RKIND), dimension(3) :: cross
+
+   cross(1) = u(2) * v(3) - v(2) * u(3)
+   cross(2) = u(1) * v(3) - v(1) * u(3) 
+   cross(3) = u(1) * v(2) - v(1) * u(2) 
+
+ end function cross
+
+
+ real(kind=RKIND) function dot(u, v)
+ implicit none
+
+ real (kind=RKIND), dimension(3), intent(in) :: u, v
+
+ dot = u(1) * v(1) + u(2) * v(2) + u(3) * v(3)
+
+ end function dot
+
+ real(kind=RKIND) function mag(u)
+ implicit none
+
+ real (kind=RKIND), dimension(3), intent(in) :: u
+
+ mag = u(1)**2 + u(2)**2 + u(3)**2
+ mag = sqrt(mag)
+ end function mag
 
 end module utils

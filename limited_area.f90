@@ -20,13 +20,14 @@
       character(len=600) :: arg
       type(ncfile) :: ncin, ncout, nca, ncb, ncc, ncr
       integer :: i, j, l, ierr, iFile, nFiles_a=1, nFiles_b = 1, nFiles_c = 1
-      integer :: aint_present, testing
-      logical :: related = .false., nostatic = .false.
+      integer :: testing
+      logical :: file_present, related = .false., nostatic = .false.
 
       namelist /filesandvariables/ static_file, file_a, vars_a, file_b, vars_b, file_c, vars_c, vars_r, output_filename     
 
-      aint_present = access(name='namelist.limitedarea', mode=' ')      
-      if (aint_present == 0) then
+
+      inquire(file='namelist.limitedarea', exist=file_present)
+      if (file_present) then
          open(12, file='namelist.limitedarea')
          read(12, filesandvariables)
          close(12)
@@ -136,8 +137,8 @@
          write (0,*) "==========================================================="
          stop
       end if
-      aint_present = access(name=static_file, mode=' ')
-      if (aint_present /= 0) then
+      inquire(file=trim(static_file), exist=file_present)
+      if (.not. file_present) then
          write (0,*) "==========================================================="
          write (0,*) "      The file "//trim(static_file)//" is not present"
          write (0,*) "==========================================================="

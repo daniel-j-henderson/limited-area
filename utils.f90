@@ -27,7 +27,7 @@
       real (kind=RKIND), dimension(:,:), allocatable :: cellpoints 
       real (kind=RKIND) :: mindist, dist, angle, minangle, PI=3.141592653589793
       real (kind=RKIND), intent(in) :: radius
-      real (kind=RKIND), dimension(3) :: pt, pta, ptb
+      real (kind=RKIND), dimension(3) :: pt, pta, ptb, v1, v2, v3
 
       integer, dimension(:), allocatable :: prev
       logical, dimension(:), allocatable :: unvisited
@@ -36,8 +36,7 @@
       type(min_heap) :: q
 
       integer(kind=RKIND) :: t1, t2, t3, rate
-
-
+      
 
       call system_clock(t1, rate)
 
@@ -76,13 +75,15 @@
 
       allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
-
       ! Follow-the-line Algorithm :: Alternative to the Greedy Algorithm
       do i=1, npts
          source_cell = boundary_cells(i)
          target_cell = boundary_cells(mod(i, npts) + 1)
          call con_lx(latCell(source_cell), lonCell(source_cell), radius, pta(1), pta(2), pta(3))
          call con_lx(latCell(target_cell), lonCell(target_cell), radius, ptb(1), ptb(2), ptb(3))
+         pta = cross(pta, ptb)
+         angle = mag(pta)
+         pta = pta / angle ! unit normal vector to the plane containing the arc from source to target
          iCell = source_cell
          do while(iCell /= target_cell) 
             bdyMaskCell(iCell) = INSIDE 
@@ -95,13 +96,11 @@
                dist = sphere_distance(latCell(v), lonCell(v), &
                                       latCell(target_cell), lonCell(target_cell), radius)
                if (dist > mindist) cycle
-               call con_lx(latCell(v), lonCell(v), radius, pt(1), pt(2), pt(3))
-               pta = cross(pta / mag(pta), ptb / mag(ptb))
-               pta = pta / mag(pta)
-               angle = dot(pta, pt)
-               if(acos(angle) < 0 .or. acos(angle) > PI) write (0,*) acos(angle), PI/2
+               call con_lx(latCell(v), lonCell(v), 1.0, pt(1), pt(2), pt(3))
+               angle = dot(pta, pt) ! both pt and pta are radius 1.0 so acos(pta * pt) = cos(theta), where theta is angle between normal vector and pt
                angle = abs(PI / 2 - acos(angle))
-               if (angle < minangle) then
+               if (angle < minangle) then ! find iCell's neighbor that is both nearer the target cell than iCell 
+                                          ! and minimizes the angle between the other neighbors and the arc from source to target
                   minangle = angle
                   k = v
                end if
@@ -109,6 +108,7 @@
             iCell = k
          end do
       end do
+
 
       ! Greedy Algorithm :: Alternative to the Dijkstra Algorithm
 !      do i=1, npts
@@ -118,10 +118,12 @@
 !         do while(iCell /= target_cell) 
 !            bdyMaskCell(iCell) = INSIDE
 !            mindist = huge(1.0)
+!            angle = sphere_distance(latCell(iCell), lonCell(iCell), latCell(target_cell), lonCell(target_cell), radius)
 !            do j=1, nEdgesOnCell(iCell)
 !               v = cellsOnCell(j, iCell)
 !               dist = sphere_distance(latCell(v), lonCell(v), &
 !                                      latCell(target_cell), lonCell(target_cell), radius)
+!               if (dist > angle) cycle
 !               if (dist < mindist) then
 !                  mindist = dist
 !                  k = v
@@ -130,8 +132,8 @@
 !            iCell = k
 !         end do
 !      end do
-                  
-
+!                  
+!      end if
 
       ! Dijkstra's Algorithm :: Produces correct boundaries, but they can
       ! sometimes cut into the desired area and don't necessarily follow the

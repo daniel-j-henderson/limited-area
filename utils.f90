@@ -8,8 +8,7 @@
    integer, parameter :: BOUNDARY5 = 6
    integer, parameter :: INSIDE = 1
    contains
-    ! subroutine create_boundary(nCells, radius, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell, xCell, yCell, zCell)
-    subroutine create_boundary(nCells, radius, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+    subroutine create_boundary(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
       use kd_tree_mod
       use minheap_mod
@@ -19,20 +18,21 @@
       integer :: iCell, source_cell, v, i, j, k, npts, target_cell, inside_cell
       integer, intent(in) :: nCells
       real (kind=RKIND), dimension(:), pointer, intent(in) :: latCell, lonCell
+      real (kind=RKIND), dimension(:,:), intent(in) :: bdy_pts
+      real (kind=RKIND), dimension(2) :: inside_pt
       ! real (kind=RKIND), dimension(:), pointer, intent(in) :: xCell, yCell, zCell
       integer, dimension(:), pointer, intent(out) :: bdyMaskCell
       integer, dimension(:), pointer, intent(in) :: nEdgesOnCell
       integer, dimension(:,:), pointer, intent(in) :: cellsOnCell
       integer, dimension(:), allocatable :: boundary_cells
       real (kind=RKIND), dimension(:,:), allocatable :: cellpoints 
-      real (kind=RKIND) :: mindist, dist, angle, minangle, PI=3.141592653589793
+      real (kind=RKIND) :: mindist, dist, angle, minangle 
       real (kind=RKIND), intent(in) :: radius
       real (kind=RKIND), dimension(3) :: pt, pta, ptb, v1, v2, v3
 
       integer, dimension(:), allocatable :: prev
       logical, dimension(:), allocatable :: unvisited
       real (kind=RKIND), dimension(:), allocatable :: distance
-      type(kd_tree) :: cell_tree
       type(min_heap) :: q
 
       integer(kind=RKIND) :: t1, t2, t3, rate
@@ -40,50 +40,30 @@
 
       call system_clock(t1, rate)
 
-      write (0,*) "   Creating cell tree..."
-      ! Create cell tree
-      allocate(cellpoints(3,nCells))
-      do i=1,nCells
-      !   cellpoints(:,i) = (/xCell(i), yCell(i), zCell(i)/)
-         call con_lx(latCell(i), lonCell(i), radius, pt(1), pt(2), pt(3))
-         cellpoints(:,i) = pt
-      end do
-      call cell_tree%create_tree(cellpoints)
-      deallocate(cellpoints)
-
-      ! Read in a list of ordered lat-lon points, do not repeat the first point at the end
-      open(10, FILE='points.txt')
-      read(10, *) npts
-      pt = 0.0
+      ! Interpolate the boundary points provided onto the MPAS mesh
+      npts = size(bdy_pts(1,:))
       allocate(boundary_cells(npts))
-      do i=1, npts
-         read(10,*) pt(1), pt(2)
-         pt = pt * PI / 180.0
-         !call con_lx(pt(1), pt(2), radius, pt(1), pt(2), pt(3))
-         !boundary_cells(i) = cell_tree%nearest_cell(pt)
-         boundary_cells(i) = nearest_cell_path(pt(1), pt(2), merge(boundary_cells(i-1), 1, i > 1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
-         !write (0,*) latCell(boundary_cells(i)) * 180.0 / PI, lonCell(boundary_cells(i)) * 180.0 / PI
+      do i=1, size(bdy_pts(1,:))
+         boundary_cells(i) = nearest_cell_path(bdy_pts(1,i), bdy_pts(2,i), &
+                  merge(boundary_cells(i-1), 1, i > 1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
       end do
-
-      read(10,*) pt(1), pt(2)
-      pt = pt * PI / 180.0
-      call con_lx(pt(1), pt(2), radius, pt(1), pt(2), pt(3))
-      inside_cell = cell_tree%nearest_cell(pt)
-
+      inside_cell = nearest_cell_path(inside_pt(1), inside_pt(2), &
+                  boundary_cells(1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+         
       call system_clock(t2)
-      write (0,*) "   Time to create cell tree and read points:", real(t2-t1) / real(rate)
 
       allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
-      ! Follow-the-line Algorithm :: Alternative to the Greedy Algorithm
+      ! Follow-the-line Algorithm :: A greedy algorithm that is greedy on angle
+      ! between a cell and the great-circle arc from source to target 
       do i=1, npts
-         source_cell = boundary_cells(i)
-         target_cell = boundary_cells(mod(i, npts) + 1)
+         source_cell = boundary_cells(i) ! beginning of segment of boundary
+         target_cell = boundary_cells(mod(i, npts) + 1) ! end of segment of boundary
          call con_lx(latCell(source_cell), lonCell(source_cell), radius, pta(1), pta(2), pta(3))
          call con_lx(latCell(target_cell), lonCell(target_cell), radius, ptb(1), ptb(2), ptb(3))
          pta = cross(pta, ptb)
          angle = mag(pta)
-         pta = pta / angle ! unit normal vector to the plane containing the arc from source to target
+         pta = pta / angle ! now pta = unit normal vector to the plane containing the arc from source to target
          iCell = source_cell
          do while(iCell /= target_cell) 
             bdyMaskCell(iCell) = INSIDE 
@@ -92,12 +72,13 @@
             mindist = sphere_distance(latCell(iCell), lonCell(iCell),&
                                       latCell(target_cell), lonCell(target_cell), radius)
             do j=1, nEdgesOnCell(iCell)
-               v = cellsOnCell(j, iCell)
+               v = cellsOnCell(j, iCell) ! v = the jth neighbor of iCell
                dist = sphere_distance(latCell(v), lonCell(v), &
                                       latCell(target_cell), lonCell(target_cell), radius)
-               if (dist > mindist) cycle
+               if (dist > mindist) cycle ! if v was further away than iCell, skip it, regardless of its angle
+                                         ! with the arc from source to target
                call con_lx(latCell(v), lonCell(v), 1.0, pt(1), pt(2), pt(3))
-               angle = dot(pta, pt) ! both pt and pta are radius 1.0 so acos(pta * pt) = cos(theta), where theta is angle between normal vector and pt
+               angle = dot(pta, pt) ! both pt and pta are radius 1.0 so (pta dot pt) = cos(theta), where theta is angle between normal vector and pt
                angle = abs(PI / 2 - acos(angle))
                if (angle < minangle) then ! find iCell's neighbor that is both nearer the target cell than iCell 
                                           ! and minimizes the angle between the other neighbors and the arc from source to target
@@ -409,6 +390,32 @@
       x = radius * cos(lon) * cos(lat)
       y = radius * sin(lon) * cos(lat)
    end subroutine con_lx
+
+
+   subroutine open_pointfile(filename, bdy_points, inside_pt, region_prefix)
+      implicit none
+
+      character(len=*) :: filename
+      character(len=StrKIND), intent(out) :: region_prefix
+      real(kind=RKIND), dimension(:,:), allocatable :: bdy_points
+      real(kind=RKIND), dimension(2) :: inside_pt
+
+      integer :: npts, i
+
+      open(10, FILE=trim(filename))
+      read(10, *) region_prefix
+      read(10, *) npts
+      allocate(bdy_points(2, npts))
+      do i=1, npts
+         read(10,*) bdy_points(1, i), bdy_points(2, i)
+         bdy_points(:,i) = bdy_points(:,i) * PI / 180.0
+      end do
+
+      read(10,*) inside_pt(1), inside_pt(2)
+      inside_pt = inside_pt * PI / 180.0
+
+   end subroutine
+
 
 !==================================================================================================
  integer function nearest_cell_path(target_lat, target_lon, start_cell, nCells, maxEdges, &

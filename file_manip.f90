@@ -86,6 +86,36 @@ module mpas_file_manip
       
    end function is_open
 
+   logical function file_contains_elem(filename, type, elem_name)
+      implicit none
+
+      character(len=*) :: filename
+      integer :: type
+      character(len=*) :: elem_name
+
+      integer :: ncid, ierr, el_id
+
+      ierr = nf90_open(trim(filename), NF90_NOWRITE, ncid)
+      if (ierr /= NF90_NOERR) then
+         write (0,*) "Could not open file "//trim(filename)
+         return
+      end if
+
+      select case(type)
+      case(DIM)
+         ierr = nf90_inq_dimid(ncid, trim(elem_name), el_id)
+      case(VAR)
+         ierr = nf90_inq_varid(ncid, trim(elem_name), el_id)
+      case default
+      end select
+      
+      if (ierr == NF90_NOERR) then
+         file_contains_elem = .true.
+      else
+         file_contains_elem = .false.
+      end if
+   end function file_contains_elem
+
    logical function contains_elem(this, type, elem_name)
       implicit none
 
@@ -150,6 +180,31 @@ module mpas_file_manip
       this%atts(this%natts) = trim(att_name)
    end subroutine add_att_record
 
+   logical function is_static(var_name)
+      implicit none
+      character(len=*) :: var_name
+
+      integer :: i
+
+      is_static = .false.
+      
+      do i=1, size(static_vars_1dINT)
+         if (trim(static_vars_1dINT(i)) == trim(var_name)) is_static = .true.
+      end do
+
+      do i=1, size(static_vars_2dINT)
+         if (trim(static_vars_2dINT(i)) == trim(var_name)) is_static = .true.
+      end do
+
+      do i=1, size(static_vars_1dREAL)
+         if (trim(static_vars_1dREAL(i)) == trim(var_name)) is_static = .true.
+      end do
+      
+      do i=1, size(static_vars_2dREAL)
+         if (trim(static_vars_2dREAL(i)) == trim(var_name)) is_static = .true.
+      end do
+
+   end function
 
    ! netcdf file utility wrappers
 
@@ -247,6 +302,7 @@ module mpas_file_manip
 
          ierr = nf90_inq_dimid(f%ncid, 'nEdges', dim_id)
          if (ierr /= NF90_NOERR) then
+            f%nCells = -1
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error inquiring nEdges dimid in'//f%filename
             write(0,*) 'ierr = ', ierr
@@ -255,6 +311,7 @@ module mpas_file_manip
 
          ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nEdges)
          if (ierr /= NF90_NOERR) then
+            f%nEdges = -1
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error inquiring nEdges in '//f%filename
             write(0,*) 'ierr = ', ierr
@@ -263,6 +320,7 @@ module mpas_file_manip
 
          ierr = nf90_inq_dimid(f%ncid, 'nVertices', dim_id)
          if (ierr /= NF90_NOERR) then
+            f%nVertices = -1
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error inquiring nVertices dimid in'//f%filename
             write(0,*) 'ierr = ', ierr
@@ -843,7 +901,7 @@ module mpas_file_manip
       ierr = nf90_def_var(ncout%ncid, var_name, xtype, dimids, temp)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
-         write(0,*) 'Error defining variable in create_static_field_1d'
+         write(0,*) 'Error defining variable '//trim(var_name)//' in create_static_field_1d'
          write(0,*) 'ierr = ', ierr
          write(0,*) '*********************************************************************************'
       end if
@@ -950,19 +1008,23 @@ module mpas_file_manip
       integer, dimension(2) :: dimensions, dims
 
       do i=1, size(static_vars_1dINT)
-         call create_static_field_1d(ncout, ncin, static_vars_1dINT(i))
+         if(.not. ncout%contains_elem(VAR, trim(static_vars_1dINT(i)))) &
+            call create_static_field_1d(ncout, ncin, static_vars_1dINT(i))
       end do
 
       do i=1, size(static_vars_2dINT)
-         call create_static_field_2d(ncout, ncin, static_vars_2dINT(i))
+         if(.not. ncout%contains_elem(VAR, trim(static_vars_2dINT(i)))) &
+            call create_static_field_2d(ncout, ncin, static_vars_2dINT(i))
       end do
 
       do i=1, size(static_vars_1dREAL)
-         call create_static_field_1d(ncout, ncin, static_vars_1dREAL(i))
+         if(.not. ncout%contains_elem(VAR, trim(static_vars_1dREAL(i)))) &
+            call create_static_field_1d(ncout, ncin, static_vars_1dREAL(i))
       end do
 
       do i=1, size(static_vars_2dREAL)
-         call create_static_field_2d(ncout, ncin, static_vars_2dREAL(i))
+         if(.not. ncout%contains_elem(VAR, trim(static_vars_2dREAL(i)))) &
+            call create_static_field_2d(ncout, ncin, static_vars_2dREAL(i))
       end do
 
       

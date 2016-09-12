@@ -36,6 +36,7 @@
       type(min_heap) :: q
 
       integer(kind=RKIND) :: t1, t2, t3, rate
+      real(kind=RKIND) :: temp
       
 
       call system_clock(t1, rate)
@@ -51,7 +52,7 @@
                   boundary_cells(1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
          
       call system_clock(t2)
-
+      bdyMaskCell = 0
       allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
       ! Follow-the-line Algorithm :: A greedy algorithm that is greedy on angle
@@ -59,11 +60,11 @@
       do i=1, npts
          source_cell = boundary_cells(i) ! beginning of segment of boundary
          target_cell = boundary_cells(mod(i, npts) + 1) ! end of segment of boundary
-         call con_lx(latCell(source_cell), lonCell(source_cell), radius, pta(1), pta(2), pta(3))
-         call con_lx(latCell(target_cell), lonCell(target_cell), radius, ptb(1), ptb(2), ptb(3))
+         call con_lx(latCell(source_cell), lonCell(source_cell), 1.0, pta(1), pta(2), pta(3))
+         call con_lx(latCell(target_cell), lonCell(target_cell), 1.0, ptb(1), ptb(2), ptb(3))
          pta = cross(pta, ptb)
-         angle = mag(pta)
-         pta = pta / angle ! now pta = unit normal vector to the plane containing the arc from source to target
+         temp = mag(pta)
+         pta = pta / temp ! now pta = unit normal vector to the plane containing the arc from source to target
          iCell = source_cell
          do while(iCell /= target_cell) 
             bdyMaskCell(iCell) = INSIDE 
@@ -113,8 +114,7 @@
 !            iCell = k
 !         end do
 !      end do
-!                  
-!      end if
+
 
       ! Dijkstra's Algorithm :: Produces correct boundaries, but they can
       ! sometimes cut into the desired area and don't necessarily follow the
@@ -159,7 +159,7 @@
       call system_clock(t3)
 
       call system_clock(t2)
-      bdyMaskCell(inside_cell) = INSIDE
+      bdyMaskCell(inside_cell) = INSIDE 
       call mark_neighbors_from_source(inside_cell, INSIDE, bdyMaskCell, cellsOnCell, nEdgesOnCell)      
       call mark_neighbors_of_type(INSIDE, BOUNDARY1, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY1, BOUNDARY2, bdyMaskCell, cellsOnCell, nEdgesOnCell)
@@ -168,15 +168,15 @@
       call mark_neighbors_of_type(BOUNDARY4, BOUNDARY5, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call system_clock(t3)
       write (0,*) "   Time to mark the relevant cells: ", real(t3-t2) / real(rate)
-
+      write (0,*) " sum of mask:", sum(bdyMaskCell)
 
       ! Optionally make the boundary points and nearby cells a different value so they stand out in ncview, for testing purposes
-      do i=1, npts
-         bdyMaskCell(boundary_cells(i)) = 10
+!      do i=1, npts
+!         bdyMaskCell(boundary_cells(i)) = 10
 !         do j=1, nEdgesOnCell(boundary_cells(i))
 !            bdyMaskCell(cellsOnCell(j, boundary_cells(i))) = 10
 !         end do
-      end do
+!      end do
       
       write (0,*) "   Time for whole find_boundary_cells routine: ", real(t3-t1) / real(rate)
 
@@ -466,7 +466,7 @@
  real (kind=RKIND), dimension(3) :: cross
 
    cross(1) = u(2) * v(3) - v(2) * u(3)
-   cross(2) = u(1) * v(3) - v(1) * u(3) 
+   cross(2) = u(3) * v(1) - v(3) * u(1) 
    cross(3) = u(1) * v(2) - v(1) * u(2) 
 
  end function cross

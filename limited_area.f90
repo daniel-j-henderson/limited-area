@@ -117,8 +117,12 @@
          write (0,*) "Creating file "//trim(ncout%filename)//"..."
          call open_mpas_file(ncout, 'CREATE')
          if (len(trim(ncr%filename)) .ne. 0) then
-            write (0,*) "Opening file "//trim(ncr%filename)//"..."
-            call open_mpas_file(ncr, 'NF90_NOWRITE')
+            if (trim(ncr%filename) .ne. trim(ncin%filename)) then
+               write (0,*) "Opening file "//trim(ncr%filename)//"..."
+               call open_mpas_file(ncr, 'NF90_NOWRITE')
+            else
+               ncr = ncin
+            end if
             if (ncr%nCells .ne. -1 .and. ncr%nCells .ne. ncin%nCells) then ! the file has nCells but not the same nCells as the static
                write (0,*) "---------------------------------------------------------------------------------"
                write (0,*) '  The file '//trim(ncr%filename)//' you provided has different dimensions '
@@ -235,7 +239,7 @@
          call close_mpas_file(ncout)
       end do
 
-      call close_mpas_file(ncin)
+      !call close_mpas_file(ncin)
      
       write (0,*) "All Done."
 

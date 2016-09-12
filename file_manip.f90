@@ -46,6 +46,8 @@ module mpas_file_manip
       character(len=StrKIND), dimension(:), pointer :: atts
       
       contains 
+      procedure :: set_file_equal
+      generic :: assignment(=) => set_file_equal
       procedure :: add_dim_record
       procedure :: add_var_record
       procedure :: add_att_record
@@ -76,6 +78,46 @@ module mpas_file_manip
       this%nVertices = 0
 
    end subroutine clean
+
+   subroutine set_file_equal(this, f)
+      implicit none
+      class(ncfile), intent(inout) :: this
+      class(ncfile), intent(in) :: f
+
+      this%ncid = f%ncid
+      this%ndims = f%ndims
+      this%nvars = f%nvars
+      this%natts = f%natts
+      this%nCells = f%nCells
+      this%nEdges = f%nEdges
+      this%nVertices = f%nVertices
+      this%filename = f%filename
+      
+      if (associated(this%dims)) deallocate(this%dims)
+      if (associated(this%vars)) deallocate(this%vars)
+      if (associated(this%atts)) deallocate(this%atts)
+
+      if (associated(f%dims)) then
+         allocate(this%dims(size(f%dims)))
+         this%dims = f%dims
+      end if
+      if (associated(f%vars)) then
+         allocate(this%vars(size(f%vars)))
+         this%vars = f%vars
+      end if
+      if (associated(f%atts)) then
+         allocate(this%atts(size(f%atts)))
+         this%atts = f%atts
+      end if
+
+   end subroutine set_file_equal
+
+
+
+
+
+
+ 
 
    logical function is_open(this)
       implicit none

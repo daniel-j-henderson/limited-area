@@ -156,9 +156,7 @@
 !         call q%delete_heap()
 !      end do
       
-      call system_clock(t3)
 
-      call system_clock(t2)
       bdyMaskCell(inside_cell) = INSIDE 
       call mark_neighbors_from_source(inside_cell, INSIDE, bdyMaskCell, cellsOnCell, nEdgesOnCell)      
       call mark_neighbors_of_type(INSIDE, BOUNDARY1, bdyMaskCell, cellsOnCell, nEdgesOnCell)
@@ -166,9 +164,8 @@
       call mark_neighbors_of_type(BOUNDARY2, BOUNDARY3, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY3, BOUNDARY4, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY4, BOUNDARY5, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+
       call system_clock(t3)
-      write (0,*) "   Time to mark the relevant cells: ", real(t3-t2) / real(rate)
-      write (0,*) " sum of mask:", sum(bdyMaskCell)
 
       ! Optionally make the boundary points and nearby cells a different value so they stand out in ncview, for testing purposes
 !      do i=1, npts

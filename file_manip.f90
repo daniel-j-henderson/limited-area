@@ -328,53 +328,47 @@ module mpas_file_manip
 
          ierr = nf90_inq_dimid(f%ncid, 'nCells', dim_id)
          if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring nCells dimid in'//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
-
-         ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nCells)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring nCells in '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
+            write(0,*) 'nCells not present in '//f%filename
+            f%nCells = -1
+         else
+            ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nCells)
+            if (ierr /= NF90_NOERR) then
+               write(0,*) '*********************************************************************************'
+               write(0,*) 'Error inquiring nCells in '//f%filename
+               write(0,*) 'ierr = ', ierr
+               write(0,*) '*********************************************************************************'
+               f%nCells = -1
+            end if
          end if
 
          ierr = nf90_inq_dimid(f%ncid, 'nEdges', dim_id)
          if (ierr /= NF90_NOERR) then
             f%nCells = -1
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring nEdges dimid in'//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
-
-         ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nEdges)
-         if (ierr /= NF90_NOERR) then
-            f%nEdges = -1
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring nEdges in '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
+            write(0,*) 'nEdges not present in '//f%filename
+         else
+            ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nEdges)
+            if (ierr /= NF90_NOERR) then
+               write(0,*) '*********************************************************************************'
+               write(0,*) 'Error inquiring nEdges in '//f%filename
+               write(0,*) 'ierr = ', ierr
+               write(0,*) '*********************************************************************************'
+               f%nEdges = -1
+            end if
          end if
 
          ierr = nf90_inq_dimid(f%ncid, 'nVertices', dim_id)
          if (ierr /= NF90_NOERR) then
             f%nVertices = -1
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring nVertices dimid in'//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
-
-         ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nVertices)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring nVertices in '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
+            write(0,*) 'nVertices not present in '//f%filename
+         else 
+            ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nVertices)
+            if (ierr /= NF90_NOERR) then
+               write(0,*) '*********************************************************************************'
+               write(0,*) 'Error inquiring nVertices in '//f%filename
+               write(0,*) 'ierr = ', ierr
+               write(0,*) '*********************************************************************************'
+               f%nVertices = -1
+            end if
          end if
 
 
@@ -826,12 +820,15 @@ module mpas_file_manip
       else if (xtype == NF90_CHAR) then
          select case(ndims)
          case(1)
+            field_1dCHAR = ' ' 
             call get_variable_1dCHAR(ncin, var_name, field_1dCHAR)
             call put_variable_1dCHAR(ncout, field_1dCHAR, var_name)
          case(2)
+            field_2dCHAR = ' ' 
             call get_variable_2dCHAR(ncin, var_name, field_2dCHAR)
             call put_variable_2dCHAR(ncout, field_2dCHAR, var_name)
          case(3)
+            field_3dCHAR = ' ' 
             call get_variable_3dCHAR(ncin, var_name, field_3dCHAR)
             call put_variable_3dCHAR(ncout, field_3dCHAR, var_name)
          case default
@@ -1370,6 +1367,7 @@ module mpas_file_manip
 
       integer :: var_id, n, i
       integer, dimension(2) :: temp
+
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
@@ -1378,15 +1376,14 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
       end if
 
-      do i=1, n
-         ierr = nf90_put_var(f%ncid, var_id, trim(field))
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dCHAR'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if  
-      end do
+      n = len(trim(field))
+      ierr = nf90_put_var(f%ncid, var_id, trim(field), (/1/), (/n/), (/1/))
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if  
    end subroutine put_variable_1dCHAR
 
    subroutine put_variable_2dCHAR(f, field, var_name)
@@ -1834,9 +1831,25 @@ module mpas_file_manip
       character(len=*), intent(in) :: var_name
       character(len=StrKIND), intent(out) :: field
 
-      integer :: var_id, ierr
+      integer :: var_id, ierr, dimid, strlen
 
-      !if (associated(field)) deallocate(field)
+      ierr = nf90_inq_dimid(f%ncid, 'StrLen', dimid)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring dimID of StrLen in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, dimid, len=strlen)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring StrLen in '//f%filename
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+         stop
+      end if
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1847,7 +1860,7 @@ module mpas_file_manip
          stop
       end if
 
-      ierr = nf90_get_var(f%ncid, var_id, field)
+      ierr = nf90_get_var(f%ncid, var_id, field(1:strlen), start=(/1/), count=(/strlen/), stride=(/1/))
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
          write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename

@@ -158,8 +158,8 @@
          call add_dimension(ncout, 'nEdges', nEdgesLocal)
          call add_dimension(ncout, 'nVertices', nVerticesLocal)
 
-         call copy_dimensions(ncin, ncout)      
-         call copy_attributes(ncin, ncout)
+         !call copy_dimensions(ncr, ncout)      
+         call copy_attributes(ncr, ncout)
         
          ! Copy all non-static variables into the new file
          if (ncr%is_open()) then
@@ -224,7 +224,7 @@
          end if
       
 
-         write (0,*) "Closing up the files..."
+         write (0,*) "Closing up the new file..."
 
          ! Copy all variables from the input file to the output
          if (ncr%is_open()) then

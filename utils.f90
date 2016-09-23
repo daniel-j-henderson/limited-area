@@ -1,12 +1,16 @@
   module utils
    use params
    implicit none
-   integer, parameter :: BOUNDARY1 = 2
-   integer, parameter :: BOUNDARY2 = 3
-   integer, parameter :: BOUNDARY3 = 4
-   integer, parameter :: BOUNDARY4 = 5
-   integer, parameter :: BOUNDARY5 = 6
-   integer, parameter :: INSIDE = 1
+   integer, parameter :: BOUNDARY1 = 1
+   integer, parameter :: BOUNDARY2 = 2
+   integer, parameter :: BOUNDARY3 = 3
+   integer, parameter :: BOUNDARY4 = 4
+   integer, parameter :: BOUNDARY5 = 5
+   integer, parameter :: BOUNDARY6 = 6
+   integer, parameter :: BOUNDARY7 = 7
+   integer, parameter :: INSIDE = 0
+   integer, parameter :: UNMARKED = -1
+   
    contains
     subroutine create_boundary(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
@@ -52,7 +56,7 @@
                   boundary_cells(1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
          
       call system_clock(t2)
-      bdyMaskCell = 0
+      bdyMaskCell = UNMARKED
       allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
       ! Follow-the-line Algorithm :: A greedy algorithm that is greedy on angle
@@ -164,6 +168,8 @@
       call mark_neighbors_of_type(BOUNDARY2, BOUNDARY3, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY3, BOUNDARY4, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY4, BOUNDARY5, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY5, BOUNDARY6, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY6, BOUNDARY7, bdyMaskCell, cellsOnCell, nEdgesOnCell)
 
       call system_clock(t3)
 
@@ -195,7 +201,7 @@
          if (mask(iCell) .ne. type1) cycle
          do i = 1, nEdgesOnCell(iCell)
             v = cellsOnCell(i, iCell)
-            if (mask(v) == 0) mask(v) = type2
+            if (mask(v) == UNMARKED) mask(v) = type2
          end do
       end do
    end subroutine mark_neighbors_of_type
@@ -212,7 +218,7 @@
    
       do i=1, nEdgesOnCell(inside_cell)
          iCell = cellsOnCell(i, inside_cell)
-         if (mask(iCell) == 0) then
+         if (mask(iCell) == UNMARKED) then
             mask(iCell) = tval
             call mark_neighbors_from_source(iCell, tval, mask, cellsOnCell, nEdgesOnCell)
          end if
@@ -232,14 +238,14 @@
 
       j = 0
       do i=1, size(mask)
-         if (mask(i) .ne. 0) j=j+1
+         if (mask(i) .ne. UNMARKED) j=j+1
       end do
 
       allocate(map(j), imap(size(mask)), source=0)
 
       j = 1
       do i=1, size(mask)
-         if (mask(i) .ne. 0) then
+         if (mask(i) .ne. UNMARKED) then
             map(j) = i
             imap(i) = j
             j = j+1

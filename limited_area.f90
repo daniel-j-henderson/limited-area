@@ -83,19 +83,30 @@
       call get_variable_1dREAL(ncin, 'latCell', latCell)
       call get_variable_1dREAL(ncin, 'lonCell', lonCell)
  
-      allocate(bdyMaskCell(nCells), bdyMaskEdge(nEdges), bdyMaskVertex(nVertices), source=0)
+      allocate(bdyMaskCell(nCells), bdyMaskEdge(nEdges), bdyMaskVertex(nVertices), source=UNMARKED)
    
       write (0,*) "Creating boundary..."
       call open_pointfile('points.txt', bdy_points, inside_pt, region_prefix)
       call create_boundary(nCells, 1.0, bdy_points, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
       do i=1, nEdges
-         bdyMaskEdge(i) = max(bdyMaskCell(cellsOnEdge(1, i)), bdyMaskCell(cellsOnEdge(2, i)))
+         if (bdyMaskCell(cellsOnEdge(1,i)) == UNMARKED) then
+            bdyMaskEdge(i) = bdyMaskCell(cellsOnEdge(2,i))
+         else if (bdyMaskCell(cellsOnEdge(2,i)) == UNMARKED) then
+            bdyMaskEdge(i) = bdyMaskCell(cellsOnEdge(1,i))
+         else
+            bdyMaskEdge(i) = min(bdyMaskCell(cellsOnEdge(2,i)), bdyMaskCell(cellsOnEdge(1,i)))
+         end if
       end do
 
       do i=1, nVertices
          do j=1, vertexDegree
-            if (bdyMaskCell(cellsOnVertex(j,i)) > bdyMaskVertex(i)) bdyMaskVertex(i) = bdyMaskCell(cellsOnVertex(j,i))
+            if (bdyMaskCell(cellsOnVertex(j,i)) == UNMARKED) then
+               cycle
+            else if (bdyMaskVertex(i) == UNMARKED) then
+               bdyMaskVertex(i) = bdyMaskCell(cellsOnVertex(j,i)) 
+            end if
+            if (bdyMaskCell(cellsOnVertex(j,i)) < bdyMaskVertex(i)) bdyMaskVertex(i) = bdyMaskCell(cellsOnVertex(j,i))
          end do
       end do
 

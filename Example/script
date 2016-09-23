@@ -1,5 +1,0 @@
-#!/bin/tcsh
-foreach file (lbc.*.nc)
-	./limited_area "-file_a" "$file" "-o" "LA.$file"
-	echo "\n\n"
-end

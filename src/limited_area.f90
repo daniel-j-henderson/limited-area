@@ -82,6 +82,7 @@
          
       call get_variable_1dREAL(ncin, 'latCell', latCell)
       call get_variable_1dREAL(ncin, 'lonCell', lonCell)
+      call close_mpas_file(ncin)
  
       allocate(bdyMaskCell(nCells), bdyMaskEdge(nEdges), bdyMaskVertex(nVertices), source=UNMARKED)
    
@@ -118,46 +119,39 @@
       nEdgesLocal = size(edge_map)
       nVerticesLocal = size(vertex_map)
 
-      write (0,*) "nCells, edges, vertices", ncin%nCells, ncin%nEdges, ncin%nVertices
-      write (0,*) "nCellsLocal, nEdgesLocal, nVerticesLocal:", nCellsLocal, nEdgesLocal, nVerticesLocal
-
       do iFile=1, nFiles
          ncout%filename = trim(region_prefix)//'.'//trim(input_files(iFile))
-         ncr%filename = trim(input_files(iFile))
+         ncin%filename = trim(input_files(iFile))
 
          write (0,*) "Creating file "//trim(ncout%filename)//"..."
          call open_mpas_file(ncout, 'CREATE')
-         if (len(trim(ncr%filename)) .ne. 0) then
-            if (trim(ncr%filename) .ne. trim(ncin%filename)) then
-               write (0,*) "Opening file "//trim(ncr%filename)//"..."
-               call open_mpas_file(ncr, 'NF90_NOWRITE')
-            else
-               ncr = ncin
-            end if
-            if (ncr%nCells .ne. -1 .and. ncr%nCells .ne. ncin%nCells) then ! the file has nCells but not the same nCells as the static
-               write (0,*) "---------------------------------------------------------------------------------"
-               write (0,*) '  The file '//trim(ncr%filename)//' you provided has different dimensions '
-               write (0,*) '  appears to be on a different grid than the static file '//trim(static_file)
-               write (0,*) '  Please make sure all files are on the same grid'
-               write (0,*) "---------------------------------------------------------------------------------"
-               stop
-            end if
-            if (ncr%nEdges .ne. -1 .and. ncr%nEdges .ne. ncin%nEdges) then
-               write (0,*) "---------------------------------------------------------------------------------"
-               write (0,*) '  The file '//trim(ncr%filename)//' you provided has different dimensions '
-               write (0,*) '  appears to be on a different grid than the static file '//trim(static_file)
-               write (0,*) '  Please make sure all files are on the same grid'
-               write (0,*) "---------------------------------------------------------------------------------"
-               stop
-            end if
-            if (ncr%nVertices .ne. -1 .and. ncr%nVertices .ne. ncin%nVertices) then
-               write (0,*) "---------------------------------------------------------------------------------"
-               write (0,*) '  The file '//trim(ncr%filename)//' you provided has different dimensions '
-               write (0,*) '  appears to be on a different grid than the static file '//trim(static_file)
-               write (0,*) '  Please make sure all files are on the same grid'
-               write (0,*) "---------------------------------------------------------------------------------"
-               stop
-            end if
+         if (len(trim(ncin%filename)) .ne. 0) then
+            write (0,*) "Opening file "//trim(ncin%filename)//"..."
+            call open_mpas_file(ncin, 'NF90_NOWRITE')
+         end if
+         if (ncin%nCells .ne. -1 .and. ncin%nCells .ne. size(icell_map)) then ! the file has nCells but not the same nCells as the static
+            write (0,*) "---------------------------------------------------------------------------------"
+            write (0,*) '  The file '//trim(ncin%filename)//' you provided has different dimensions '
+            write (0,*) '  appears to be on a different grid than the static file '//trim(static_file)
+            write (0,*) '  Please make sure all files are on the same grid'
+            write (0,*) "---------------------------------------------------------------------------------"
+            stop
+         end if
+         if (ncin%nEdges .ne. -1 .and. ncin%nEdges .ne. size(iedge_map)) then
+            write (0,*) "---------------------------------------------------------------------------------"
+            write (0,*) '  The file '//trim(ncin%filename)//' you provided has different dimensions '
+            write (0,*) '  appears to be on a different grid than the static file '//trim(static_file)
+            write (0,*) '  Please make sure all files are on the same grid'
+            write (0,*) "---------------------------------------------------------------------------------"
+            stop
+         end if
+         if (ncin%nVertices .ne. -1 .and. ncin%nVertices .ne. size(ivertex_map)) then
+            write (0,*) "---------------------------------------------------------------------------------"
+            write (0,*) '  The file '//trim(ncin%filename)//' you provided has different dimensions '
+            write (0,*) '  appears to be on a different grid than the static file '//trim(static_file)
+            write (0,*) '  Please make sure all files are on the same grid'
+            write (0,*) "---------------------------------------------------------------------------------"
+            stop
          end if
 
          ncout%nCells = nCellsLocal
@@ -170,22 +164,20 @@
          call add_dimension(ncout, 'nVertices', nVerticesLocal)
 
          !call copy_dimensions(ncr, ncout)      
-         call copy_attributes(ncr, ncout)
+         call copy_attributes(ncin, ncout)
         
          ! Copy all non-static variables into the new file
-         if (ncr%is_open()) then
-            call copy_dimensions(ncr, ncout)
-            do i=1, ncr%nvars
-               if(len(trim(ncr%vars(i)))==0 .or. ncr%vars(i)(1:7) == 'indexTo' .or. is_static(trim(ncr%vars(i)))) then
-                  cycle
-               end if
-               call copy_variable_defmode(ncr, ncout, ncr%vars(i))
-            end do
-         end if
+         call copy_dimensions(ncin, ncout)
+         do i=1, ncin%nvars
+            if(len(trim(ncin%vars(i)))==0 .or. ncin%vars(i)(1:7) == 'indexTo' .or. is_static(trim(ncin%vars(i)))) then
+               cycle
+            end if
+            call copy_variable_defmode(ncin, ncout, ncin%vars(i))
+         end do
 
          ! Definition of a file having 'static' fields is that it contains
          ! cellsOnCell
-         if (ncr%contains_elem(VAR, 'cellsOnCell')) then
+         if (ncin%contains_elem(VAR, 'cellsOnCell')) then
             nostatic = .false.
          else
             nostatic = .true.
@@ -238,20 +230,16 @@
          write (0,*) "Closing up the new file..."
 
          ! Copy all variables from the input file to the output
-         if (ncr%is_open()) then
-            do i=1, ncr%nvars
-               if (.not. is_static(trim(ncr%vars(i)))) &
-                  call copy_variable_datamode(ncr, ncout, ncr%vars(i), cell_map, edge_map, vertex_map)
-            end do
-            call close_mpas_file(ncr)
-         end if
+         do i=1, ncin%nvars
+            if (.not. is_static(trim(ncin%vars(i)))) &
+               call copy_variable_datamode(ncin, ncout, ncin%vars(i), cell_map, edge_map, vertex_map)
+         end do
+         call close_mpas_file(ncin)
 
 
          call close_mpas_file(ncout)
       end do
 
-      !call close_mpas_file(ncin)
-     
       write (0,*) "All Done."
 
    

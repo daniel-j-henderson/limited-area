@@ -8,7 +8,7 @@ params.o: params.f90
 	$(FC) $(FFLAGS) -c params.f90
 
 min_heap.o: min_heap.f90 params.o
-	$(FC) $(FFLAGS) -c min_heap.f90 params.o
+	$(FC) $(FFLAGS) -c min_heap.f90
 
 utils.o: utils.f90 min_heap.o params.o
 	$(FC) $(FFLAGS) -c utils.f90 $(INCLUDES)

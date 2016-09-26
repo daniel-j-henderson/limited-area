@@ -14,7 +14,6 @@
    contains
     subroutine create_boundary(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
-      use minheap_mod
 
       implicit none
 
@@ -23,26 +22,17 @@
       real (kind=RKIND), dimension(:), pointer, intent(in) :: latCell, lonCell
       real (kind=RKIND), dimension(:,:), intent(in) :: bdy_pts
       real (kind=RKIND), dimension(2) :: inside_pt
-      ! real (kind=RKIND), dimension(:), pointer, intent(in) :: xCell, yCell, zCell
       integer, dimension(:), pointer, intent(out) :: bdyMaskCell
       integer, dimension(:), pointer, intent(in) :: nEdgesOnCell
       integer, dimension(:,:), pointer, intent(in) :: cellsOnCell
       integer, dimension(:), allocatable :: boundary_cells
-      real (kind=RKIND), dimension(:,:), allocatable :: cellpoints 
       real (kind=RKIND) :: mindist, dist, angle, minangle 
       real (kind=RKIND), intent(in) :: radius
       real (kind=RKIND), dimension(3) :: pt, pta, ptb, v1, v2, v3
 
-      integer, dimension(:), allocatable :: prev
-      logical, dimension(:), allocatable :: unvisited
-      real (kind=RKIND), dimension(:), allocatable :: distance
-      type(min_heap) :: q
-
-      integer(kind=RKIND) :: t1, t2, t3, rate
       real(kind=RKIND) :: temp
       
 
-      call system_clock(t1, rate)
 
       ! Interpolate the boundary points provided onto the MPAS mesh
       npts = size(bdy_pts(1,:))
@@ -54,9 +44,7 @@
       inside_cell = nearest_cell_path(inside_pt(1), inside_pt(2), &
                   boundary_cells(1), nCells, 10, nEdgesOnCell, cellsOnCell, latCell, lonCell)
          
-      call system_clock(t2)
       bdyMaskCell = UNMARKED
-      allocate(prev(nCells), unvisited(nCells), distance(nCells))
 
       ! Follow-the-line Algorithm :: A greedy algorithm that is greedy on angle
       ! between a cell and the great-circle arc from source to target 
@@ -169,18 +157,6 @@
       call mark_neighbors_of_type(BOUNDARY4, BOUNDARY5, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY5, BOUNDARY6, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY6, BOUNDARY7, bdyMaskCell, cellsOnCell, nEdgesOnCell)
-
-      call system_clock(t3)
-
-      ! Optionally make the boundary points and nearby cells a different value so they stand out in ncview, for testing purposes
-!      do i=1, npts
-!         bdyMaskCell(boundary_cells(i)) = 10
-!         do j=1, nEdgesOnCell(boundary_cells(i))
-!            bdyMaskCell(cellsOnCell(j, boundary_cells(i))) = 10
-!         end do
-!      end do
-      
-      write (0,*) "   Time for whole find_boundary_cells routine: ", real(t3-t1) / real(rate)
 
    end subroutine create_boundary 
 

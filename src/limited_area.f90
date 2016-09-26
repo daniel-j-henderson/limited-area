@@ -87,7 +87,7 @@
    
       write (0,*) "Creating boundary..."
       call open_pointfile('points.txt', bdy_points, inside_pt, region_prefix)
-      call create_boundary(nCells, 1.0, bdy_points, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+      call create_boundary(nCells, 1.0_RKIND, bdy_points, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
       do i=1, nEdges
          if (bdyMaskCell(cellsOnEdge(1,i)) == UNMARKED) then

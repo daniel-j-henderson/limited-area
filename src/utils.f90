@@ -14,7 +14,6 @@
    contains
     subroutine create_boundary(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
-      use kd_tree_mod
       use minheap_mod
 
       implicit none

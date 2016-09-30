@@ -20,7 +20,7 @@ ifort:
 	cd src; $(MAKE) FC="ifort" \
 	INCLUDES="$(INCLUDES)" \
 	LIBS="$(LIBS)" \
-	FFLAGS="-autodouble" 
+	FFLAGS="-g -traceback -autodouble" 
 						
 clean:
 	cd src; $(MAKE) clean

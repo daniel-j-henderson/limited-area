@@ -617,6 +617,7 @@ module mpas_file_manip
             write(0,*) 'shape(field):',  ncout%nEdges
             write(0,*) '*********************************************************************************'
          end if  
+         write (0,*) "exit"
          return
       end if
 
@@ -824,10 +825,12 @@ module mpas_file_manip
             call get_variable_1dCHAR(ncin, var_name, field_1dCHAR)
             call put_variable_1dCHAR(ncout, field_1dCHAR, var_name)
          case(2)
+            allocate(field_2dCHAR(dimlens(2)))
             field_2dCHAR = ' ' 
             call get_variable_2dCHAR(ncin, var_name, field_2dCHAR)
             call put_variable_2dCHAR(ncout, field_2dCHAR, var_name)
          case(3)
+            allocate(field_3dCHAR(dimlens(2), dimlens(3)))
             field_3dCHAR = ' ' 
             call get_variable_3dCHAR(ncin, var_name, field_3dCHAR)
             call put_variable_3dCHAR(ncout, field_3dCHAR, var_name)

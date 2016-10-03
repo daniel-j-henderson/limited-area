@@ -1,9 +1,9 @@
 
 INCLUDES = $(wildcard *.o)
 
-LIBS = $(shell nc-config --libs)
+LIBS = $(shell nc-config --flibs)
 
-INCLUDES += -I$(shell nc-config --includedir)
+INCLUDES += $(shell nc-config --fflags)
 
 all:
 	@echo "*********************************************"

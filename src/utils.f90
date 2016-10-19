@@ -12,7 +12,103 @@
    integer, parameter :: UNMARKED = -1
    
    contains
-    subroutine create_boundary(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+
+
+
+
+   subroutine create_boundary_from_region(bdyMaskCell, regionType, rparams, &
+                                          latCell, lonCell, radius, cellsOnCell, nEdgesOnCell)
+
+      implicit none
+   
+      integer, dimension(:), pointer, intent(inout) :: bdyMaskCell
+      integer, dimension(:), pointer, intent(in) :: nEdgesOnCell
+      integer, dimension(:,:), pointer, intent(in) :: cellsOnCell
+      integer, intent(in) :: regionType
+      real(kind=RKIND), dimension(:), intent(in) :: rparams
+      real(kind=RKIND), dimension(:), pointer, intent(in) :: latCell, lonCell 
+      real(kind=RKIND), intent(in) :: radius
+
+      integer :: i, j, nCells
+      real(kind=RKIND) x, y, min_axis_angle, lat_center, lon_center, lat_a, lon_a, lat_b, lon_b, lat_f1, lon_f1, lat_f2, lon_f2, phi, temp, com_dist
+      real(kind=RKIND), dimension(3) :: r, r2, a_pt, b_pt, c_pt, f1, f2
+
+      bdyMaskCell = UNMARKED
+      nCells = size(bdyMaskCell)
+      select case (regionType)
+      case (RCIRCULAR)
+         ! rparams = (/lat, lon, circle_region_radius/)
+         if (rparams(3) > PI * radius) then
+            write (0,*) "Error: The radius you provided for your circular region is greater than the radius of the MPAS mesh * PI. Please provide a new radius."
+            stop
+         end if
+         lat_center = rparams(1) * PI / 180.0
+         lon_center = rparams(2) * PI / 180.0
+         do i=1, nCells
+            if (sphere_distance(lat_center, lon_center, latCell(i), lonCell(i), radius) <= rparams(3)) &
+               bdyMaskCell(i) = INSIDE
+         end do
+
+      case (RELLIPTICAL)
+         ! rparams = (/lat_center, lon_center, lat_a, lon_a, minor_axis_length_degrees/)   
+         lat_center = rparams(1) * PI / 180.0
+         lon_center = rparams(2) * PI / 180.0
+         lat_a = rparams(3) * PI / 180.0
+         lon_a = rparams(4) * PI / 180.0
+         min_axis_angle = rparams(5) * PI / 180.0
+         !lat_b = rparams(5) * PI / 180.0
+         !lon_b = rparams(6) * PI / 180.0
+         call con_lx(lat_a, lon_a, radius, a_pt(1), a_pt(2), a_pt(3))
+         call con_lx(lat_b, lon_b, radius, b_pt(1), b_pt(2), b_pt(3))
+         call con_lx(lat_center, lon_center, radius, c_pt(1), c_pt(2), c_pt(3))
+
+         ! rotate the center point about the unit normal vector by the
+         ! appropriate amount to find the foci
+         r = cross(a_pt, c_pt)
+         r = r/mag(r)
+
+         ! b is calculated so that you need not provide it, only its angle
+         r2 = cross(a_pt, r)
+         r2 = r/mag(r)
+         b_pt = rot(c_pt, r2, min_axis_angle)
+         call con_xl(b_pt(1), b_pt(2), b_pt(3), lat_b, lon_b)
+
+         phi = sqrt(sphere_distance(lat_a, lon_a, lat_center, lon_center, radius)**2 - &
+                    sphere_distance(lat_b, lon_b, lat_center, lon_center, radius)**2)
+         phi = phi / radius
+         f1 = rot(c_pt, r, -phi)
+         f2 = rot(c_pt, r, phi)
+         
+         call con_xl(f1(1), f1(2), f1(3), lat_f1, lon_f1)
+         call con_xl(f2(1), f2(2), f2(3), lat_f2, lon_f2)
+
+         ! distance from one focus to any point on the ellipse to the other
+         ! focus, we compare with that to see which points lie inside
+         com_dist = sphere_distance(lat_f1, lon_f1, lat_a, lon_a, radius) + &
+                    sphere_distance(lat_f2, lon_f2, lat_a, lon_a, radius)
+         do i=1, nCells
+            x = sphere_distance(latCell(i), lonCell(i), lat_f1, lon_f1, radius)
+            y = sphere_distance(latCell(i), lonCell(i), lat_f2, lon_f2, radius)
+            if ((x + y) <= com_dist) then
+                  bdyMaskCell(i) = INSIDE
+            end if
+         end do
+      case default
+      end select
+
+      call mark_neighbors_of_type(INSIDE, BOUNDARY1, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY1, BOUNDARY2, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY2, BOUNDARY3, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY3, BOUNDARY4, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY4, BOUNDARY5, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY5, BOUNDARY6, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+      call mark_neighbors_of_type(BOUNDARY6, BOUNDARY7, bdyMaskCell, cellsOnCell, nEdgesOnCell)
+
+
+   end subroutine create_boundary_from_region
+
+
+    subroutine create_boundary_custom(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
 
 
       implicit none
@@ -158,7 +254,7 @@
       call mark_neighbors_of_type(BOUNDARY5, BOUNDARY6, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY6, BOUNDARY7, bdyMaskCell, cellsOnCell, nEdgesOnCell)
 
-   end subroutine create_boundary 
+   end subroutine create_boundary_custom
 
    subroutine mark_neighbors_of_type(type1, type2, mask, cellsOnCell, nEdgesOnCell)
    ! For each cell in the global mesh, if it is of type1, mark all of its
@@ -370,27 +466,46 @@
    end subroutine con_lx
 
 
-   subroutine open_pointfile(filename, bdy_points, inside_pt, region_prefix)
+   subroutine open_pointfile(filename, bdy_points, inside_pt, region_prefix, region_type, rparams)
       implicit none
 
       character(len=*) :: filename
       character(len=StrKIND), intent(out) :: region_prefix
+      character(len=StrKIND) :: rtype 
+      integer, intent(out) :: region_type
+      character(len=1000) :: str
       real(kind=RKIND), dimension(:,:), allocatable :: bdy_points
       real(kind=RKIND), dimension(2) :: inside_pt
+      real(kind=RKIND), dimension(:), allocatable, intent(out) :: rparams
 
-      integer :: npts, i
+      integer :: npts, i, j, n
 
       open(10, FILE=trim(filename))
       read(10, *) region_prefix
-      read(10, *) npts
-      allocate(bdy_points(2, npts))
-      do i=1, npts
-         read(10,*) bdy_points(1, i), bdy_points(2, i)
-         bdy_points(:,i) = bdy_points(:,i) * PI / 180.0
-      end do
+      read(10, *) str
+      if (verify(trim(str), '0123456789') > 0) then
+         read(str, *) rtype
+         if (trim(rtype) == 'circle') then
+            region_type = RCIRCULAR
+            n = 3
+         else if (trim(rtype) == 'ellipse') then
+            region_type = RELLIPTICAL
+            n = 5
+         end if
+         allocate(rparams(n))
+         read(10, *) rparams
+      else 
+         region_type = RCUSTOM
+         read(str, *) npts
+         allocate(bdy_points(2, npts))
+         do i=1, npts
+            read(10,*) bdy_points(1, i), bdy_points(2, i)
+            bdy_points(:,i) = bdy_points(:,i) * PI / 180.0
+         end do
 
-      read(10,*) inside_pt(1), inside_pt(2)
-      inside_pt = inside_pt * PI / 180.0
+         read(10,*) inside_pt(1), inside_pt(2)
+         inside_pt = inside_pt * PI / 180.0
+      end if
 
    end subroutine
 
@@ -467,5 +582,80 @@
  mag = u(1)**2 + u(2)**2 + u(3)**2
  mag = sqrt(mag)
  end function mag
+
+
+ function rot(v, k, phi)
+   implicit none
+   real(kind=RKIND), dimension(3) :: rot
+   real(kind=RKIND), dimension(3), intent(in) :: v, k
+   real(kind=RKIND) :: phi
+
+   rot = v*cos(phi) + cross(k, v)*sin(phi) + v*dot(k, v)*(1-cos(phi))
+
+ end function rot
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! SUBROUTINE CONVERT_XL
+   !
+   ! Convert (x, y, z) to a (lat, lon) location on a sphere with
+   !    radius sqrt(x^2 + y^2 + z^2).
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   subroutine con_xl(x, y, z, lat, lon)
+   
+      implicit none
+   
+      real (kind=RKIND), intent(in) :: x, y, z
+      real (kind=RKIND), intent(out) :: lat, lon
+   
+      real (kind=RKIND) :: dl
+      real (kind=RKIND) :: clat, eps
+      parameter (eps=1.e-10)
+      
+      integer :: i,j
+      real(kind=RKIND) :: pii = PI
+
+   
+      dl = sqrt(x*x + y*y + z*z)
+      lat = asin(z/dl)
+   
+   !  check for being close to either pole
+         if (abs(x) > eps) then
+            if (abs(y) > eps) then
+               lon = atan(abs(y/x))
+      
+               if ((x <= 0.) .and. (y >= 0.)) then
+                  lon = pii-lon
+               else if ((x <= 0.) .and. (y < 0.)) then
+                  lon = lon+pii
+               else if ((x >= 0.) .and. (y <= 0.)) then
+                  lon = 2*pii-lon
+               end if
+      
+            else ! we're either on longitude 0 or 180
+      
+               if (x > 0) then
+                  lon = 0.
+               else
+                  lon = pii
+               end if
+      
+            end if
+      
+         else if (abs(y) > eps) then
+      
+            if (y > 0) then
+               lon = pii/2.
+            else
+               lon = 3.*pii/2.
+            end if
+      
+         else  ! we are at a pole
+      
+            lon = 0.
+      
+         end if
+   end subroutine con_xl
+
 
 end module utils

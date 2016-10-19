@@ -16,11 +16,12 @@
       integer, dimension(:,:), pointer :: cellsOnCell, cellsOnEdge, CellsOnVertex
       real (kind=RKIND) :: radius
       character(len=StrKIND) :: static_file = ' '
-      character(len=StrKIND) :: region_prefix
+      character(len=StrKIND) :: region_prefix 
       character(len=StrKIND), dimension(:), allocatable :: input_files
       type(ncfile) :: ncin, ncout, ncr
-      integer :: i, j, l, ierr, iFile, nFiles
+      integer :: i, j, l, ierr, iFile, nFiles, region_type
       logical :: file_present, nostatic = .false.
+      real(kind=RKIND), dimension(:), allocatable :: rparams
 
 
 
@@ -87,8 +88,15 @@
       allocate(bdyMaskCell(nCells), bdyMaskEdge(nEdges), bdyMaskVertex(nVertices), source=UNMARKED)
    
       write (0,*) "Creating boundary..."
-      call open_pointfile('points.txt', bdy_points, inside_pt, region_prefix)
-      call create_boundary(nCells, 1.0_RKIND, bdy_points, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+      call open_pointfile('points.txt', bdy_points, inside_pt, region_prefix, region_type, rparams)
+      write (0,*) trim(region_prefix), region_type, rparams
+      
+      if(region_type == RCUSTOM) then
+         call create_boundary_custom(nCells, 1.0_RKIND, bdy_points, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
+      else
+         call create_boundary_from_region(bdyMaskCell, region_type, rparams, &
+                                       latCell, lonCell, radius, cellsOnCell, nEdgesOnCell) 
+      end if
 
       do i=1, nEdges
          if (bdyMaskCell(cellsOnEdge(1,i)) == UNMARKED) then

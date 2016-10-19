@@ -1,0 +1,11 @@
+region_name
+ellipse
+0.0, 0.0, 0.0, 50.0, 15.0
+
+
+
+
+
+This makes an ellipse (centered at 0.0N, 0.0E) whose major axis extends along the equator 
+from -50 to 50 degrees and whose minor axis extends along the meridian from -15 to 15 degrees. 
+If the latitude of point a does not equal the center latitude, the ellipse will be tilted.

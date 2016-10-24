@@ -74,7 +74,7 @@
          call con_xl(b_pt(1), b_pt(2), b_pt(3), lat_b, lon_b)
 
          phi = sqrt(sphere_distance(lat_a, lon_a, lat_center, lon_center, radius)**2 - &
-                    sphere_distance(lat_b, lon_b, lat_center, lon_center, radius)**2)
+                    (min_axis_angle * radius)**2)
          phi = phi / radius
          f1 = rot(c_pt, r, -phi)
          f2 = rot(c_pt, r, phi)

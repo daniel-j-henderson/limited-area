@@ -19,6 +19,7 @@
    subroutine create_boundary_from_region(bdyMaskCell, regionType, rparams, &
                                           latCell, lonCell, radius, cellsOnCell, nEdgesOnCell)
 
+      use mesh_rotate
       implicit none
    
       integer, dimension(:), pointer, intent(inout) :: bdyMaskCell
@@ -32,6 +33,7 @@
       integer :: i, j, nCells
       real(kind=RKIND) x, y, min_axis_angle, lat_center, lon_center, lat_a, lon_a, lat_b, lon_b, lat_f1, lon_f1, lat_f2, lon_f2, phi, temp, com_dist
       real(kind=RKIND), dimension(3) :: r, r2, a_pt, b_pt, c_pt, f1, f2
+      real(kind=RKIND), pointer, dimension(:) :: latarray, lonarray, xcell, ycell, zcell
 
       bdyMaskCell = UNMARKED
       nCells = size(bdyMaskCell)
@@ -51,15 +53,37 @@
 
       case (RELLIPTICAL)
          ! rparams = (/lat_center, lon_center, lat_a, lon_a, minor_axis_length_degrees/)   
+
          lat_center = rparams(1) * PI / 180.0
          lon_center = rparams(2) * PI / 180.0
          lat_a = rparams(3) * PI / 180.0
          lon_a = rparams(4) * PI / 180.0
          min_axis_angle = rparams(5) * PI / 180.0
-         !lat_b = rparams(5) * PI / 180.0
-         !lon_b = rparams(6) * PI / 180.0
+
+         allocate(latarray(nCells+1), lonarray(ncells+1))
+         latarray(1:nCells) = latCell(:)
+         lonarray(1:nCells) = lonCell(:)
+         latarray(nCells+1) = lat_a
+         lonarray(nCells+1) = lon_a
+
+         allocate(xcell(nCells+1), ycell(nCells+1), zcell(nCells+1))
+         do i=1, nCells+1
+            call con_lx(latarray(i), lonarray(i), radius, xcell(i), ycell(i), zcell(i))
+         end do
+
+         call rotate(xcell, ycell, zcell, lat_center, lon_center, 0.0, 0.0) 
+
+         do i=1, nCells+1
+            call con_xl(xcell(i), ycell(i), zcell(i), latarray(i), lonarray(i))
+         end do
+         deallocate(xcell, ycell, zcell)
+
+         lat_a = latarray(nCells+1)
+         lon_a = lonarray(nCells+1)
+         lat_center = 0.0
+         lon_center = 0.0
+
          call con_lx(lat_a, lon_a, radius, a_pt(1), a_pt(2), a_pt(3))
-         call con_lx(lat_b, lon_b, radius, b_pt(1), b_pt(2), b_pt(3))
          call con_lx(lat_center, lon_center, radius, c_pt(1), c_pt(2), c_pt(3))
 
          ! rotate the center point about the unit normal vector by the
@@ -82,13 +106,18 @@
          call con_xl(f1(1), f1(2), f1(3), lat_f1, lon_f1)
          call con_xl(f2(1), f2(2), f2(3), lat_f2, lon_f2)
 
+         write(0,*) "Rotated center:", lat_center*180/PI, lon_center*180/PI
+         write (0,*) "Rotated a:", lat_a*180/PI, lon_a*180/PI
+         write (0,*) "Rotated f1:", lat_f1*180/PI, lon_f1*180/PI
+         write (0,*) "Rotated f2:", lat_f2*180/PI, lon_f2*180/PI
+
          ! distance from one focus to any point on the ellipse to the other
          ! focus, we compare with that to see which points lie inside
          com_dist = sphere_distance(lat_f1, lon_f1, lat_a, lon_a, radius) + &
                     sphere_distance(lat_f2, lon_f2, lat_a, lon_a, radius)
          do i=1, nCells
-            x = sphere_distance(latCell(i), lonCell(i), lat_f1, lon_f1, radius)
-            y = sphere_distance(latCell(i), lonCell(i), lat_f2, lon_f2, radius)
+            x = sphere_distance(latarray(i), lonarray(i), lat_f1, lon_f1, radius)
+            y = sphere_distance(latarray(i), lonarray(i), lat_f2, lon_f2, radius)
             if ((x + y) <= com_dist) then
                   bdyMaskCell(i) = INSIDE
             end if

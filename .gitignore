@@ -1,0 +1,6 @@
+*.o
+*.mod
+*.nc
+limited_area
+mpasviewer
+namelist.*

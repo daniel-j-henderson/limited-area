@@ -14,8 +14,8 @@ Just make the makefile with your preferred compiler as the target (I support ifo
     - the second line should be the type of region you'd like. Presently, 'circle' and 'ellipse' are supported
     - the third line should be a list of the necessary parameters for the chosen region
       'circle' parameters: center_lat, center_lon, radius
-      'ellipse' parameters: center_lat, center_lon, a_lat, a_lon, semiminor_axis_angle
-        note: 'a' is the point on one end of the major axis. The semiminor axis angle is essentially the length of the semiminor axis divided by the radius of the MPAS mesh. All angles should be in degrees.
+      'ellipse' parameters: lat_left, lon_left, lat_right, lon_right, semiminor_axis_angle
+        note: the 'left' and 'right' points are the points on either end of the major axis. The semiminor axis angle is essentially the length of the semiminor axis divided by the radius of the MPAS mesh. All angles should be in degrees.
   
   b) Create a custom region from your own pointset
     - the first line of the file should be the name of the region (it will be the filename prefix for all the output files)

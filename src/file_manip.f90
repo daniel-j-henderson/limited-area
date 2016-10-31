@@ -281,18 +281,18 @@ module mpas_file_manip
             write(0,*) '*********************************************************************************'
          end if
 
-         if (allocated(ids)) deallocate(ids)
-         allocate(ids(f%ndims))
-         ierr = nf90_inq_dimids(f%ncid, temp, ids, i)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring dimids in '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
+!         if (allocated(ids)) deallocate(ids)
+!         allocate(ids(f%ndims))
+!         ierr = nf90_inq_dimids(f%ncid, temp, ids, i)
+!         if (ierr /= NF90_NOERR) then
+!            write(0,*) '*********************************************************************************'
+!            write(0,*) 'Error inquiring dimids in '//f%filename
+!            write(0,*) 'ierr = ', ierr
+!            write(0,*) '*********************************************************************************'
+!         end if
 
          do i=1, f%ndims
-            ierr = nf90_inquire_dimension(f%ncid, ids(i), name=elem_name)
+            ierr = nf90_inquire_dimension(f%ncid, i, name=elem_name)
             if (ierr /= NF90_NOERR) then
                write(0,*) '*********************************************************************************'
                write(0,*) 'Error inquiring dim name in '//f%filename
@@ -303,18 +303,18 @@ module mpas_file_manip
             f%dims(i) = elem_name
          end do
 
-         if(allocated(ids)) deallocate(ids)
-         allocate(ids(f%nvars))
-         ierr = nf90_inq_varids(f%ncid, temp, ids)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring varids in '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
+!         if(allocated(ids)) deallocate(ids)
+!         allocate(ids(f%nvars))
+!         ierr = nf90_inq_varids(f%ncid, temp, ids)
+!         if (ierr /= NF90_NOERR) then
+!            write(0,*) '*********************************************************************************'
+!            write(0,*) 'Error inquiring varids in '//f%filename
+!            write(0,*) 'ierr = ', ierr
+!            write(0,*) '*********************************************************************************'
+!         end if
 
          do i=1, f%nvars
-            ierr = nf90_inquire_variable(f%ncid, ids(i), name=elem_name)
+            ierr = nf90_inquire_variable(f%ncid, i, name=elem_name)
             if (ierr /= NF90_NOERR) then
                write(0,*) '*********************************************************************************'
                write(0,*) 'Error inquiring var name in '//f%filename

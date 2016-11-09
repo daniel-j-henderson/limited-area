@@ -1128,7 +1128,6 @@ module mpas_file_manip
          allocate(newfield_2dINT(dimensions(1), size(map)))
          call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
          call reindex_field_2dINT(newfield_2dINT, imap)
-         where(newfield_2dINT == 0) newfield_2dINT = 1
          call put_variable_2dINT(ncout, newfield_2dINT, static_vars_2dINT(i))
          deallocate(newfield_2dINT)
       end do

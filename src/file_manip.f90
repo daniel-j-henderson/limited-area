@@ -825,13 +825,9 @@ module mpas_file_manip
             call get_variable_1dCHAR(ncin, var_name, field_1dCHAR)
             call put_variable_1dCHAR(ncout, field_1dCHAR, var_name)
          case(2)
-            allocate(field_2dCHAR(dimlens(2)))
-            field_2dCHAR = ' ' 
             call get_variable_2dCHAR(ncin, var_name, field_2dCHAR)
             call put_variable_2dCHAR(ncout, field_2dCHAR, var_name)
          case(3)
-            allocate(field_3dCHAR(dimlens(2), dimlens(3)))
-            field_3dCHAR = ' ' 
             call get_variable_3dCHAR(ncin, var_name, field_3dCHAR)
             call put_variable_3dCHAR(ncout, field_3dCHAR, var_name)
          case default
@@ -1985,6 +1981,7 @@ module mpas_file_manip
       end if
 
       allocate(field(n2, n3))
+      field(:,:) = ' '
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1,1/), count = (/n1, n2, n3/))
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'

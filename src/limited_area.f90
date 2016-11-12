@@ -76,14 +76,21 @@
       call get_dimension(ncin, 'vertexDegree', vertexDegree)
       call get_attribute_REAL(ncin, 'sphere_radius', radius)
 
+      write (0,*) "A"
+
       call get_variable_1dINT(ncin, 'nEdgesOnCell', nEdgesOnCell)
       call get_variable_2dINT(ncin, 'cellsOnCell', cellsOnCell)
       call get_variable_2dINT(ncin, 'cellsOnEdge', cellsOnEdge)
       call get_variable_2dINT(ncin, 'cellsOnVertex', cellsOnVertex)
          
+      write (0,*) "B"
+
       call get_variable_1dREAL(ncin, 'latCell', latCell)
       call get_variable_1dREAL(ncin, 'lonCell', lonCell)
+      write (0,*) "C1"
       call close_mpas_file(ncin)
+
+      write (0,*) "C"
  
       allocate(bdyMaskCell(nCells), bdyMaskEdge(nEdges), bdyMaskVertex(nVertices), source=UNMARKED)
    

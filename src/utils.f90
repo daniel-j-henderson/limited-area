@@ -147,8 +147,8 @@
       do i=1, npts
          source_cell = boundary_cells(i) ! beginning of segment of boundary
          target_cell = boundary_cells(mod(i, npts) + 1) ! end of segment of boundary
-         call con_lx(latCell(source_cell), lonCell(source_cell), 1.0, pta(1), pta(2), pta(3))
-         call con_lx(latCell(target_cell), lonCell(target_cell), 1.0, ptb(1), ptb(2), ptb(3))
+         call con_lx(latCell(source_cell), lonCell(source_cell), 1.0_RKIND, pta(1), pta(2), pta(3))
+         call con_lx(latCell(target_cell), lonCell(target_cell), 1.0_RKIND, ptb(1), ptb(2), ptb(3))
          pta = cross(pta, ptb)
          temp = mag(pta)
          pta = pta / temp ! now pta = unit normal vector to the plane containing the arc from source to target
@@ -165,7 +165,7 @@
                                       latCell(target_cell), lonCell(target_cell), radius)
                if (dist > mindist) cycle ! if v was further away than iCell, skip it, regardless of its angle
                                          ! with the arc from source to target
-               call con_lx(latCell(v), lonCell(v), 1.0, pt(1), pt(2), pt(3))
+               call con_lx(latCell(v), lonCell(v), 1.0_RKIND, pt(1), pt(2), pt(3))
                angle = dot(pta, pt) ! both pt and pta are radius 1.0 so (pta dot pt) = cos(theta), where theta is angle between normal vector and pt
                angle = abs(PI / 2 - acos(angle))
                if (angle < minangle) then ! find iCell's neighbor that is both nearer the target cell than iCell 

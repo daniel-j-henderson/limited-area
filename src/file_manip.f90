@@ -64,9 +64,12 @@ module mpas_file_manip
       
       class(ncfile) :: this
       
+      write (0,*) "aa"
       if (associated(this%dims)) deallocate(this%dims)
       if (associated(this%vars)) deallocate(this%vars)
+      write (0,*) "bb"
       if (associated(this%atts)) deallocate(this%atts)
+      write (0,*) "cc"
 
       this%filename = ' '
       this%ncid = 0
@@ -76,6 +79,7 @@ module mpas_file_manip
       this%nCells = 0
       this%nEdges = 0
       this%nVertices = 0
+      write (0,*) "dd"
 
    end subroutine clean
 
@@ -255,7 +259,7 @@ module mpas_file_manip
    ! information about the file. Or create the file.
       type(ncfile), intent(inout) :: f
       character(len=*) :: mode
-      integer :: ierr, var_id, dim_id, i, temp
+      integer :: ierr, var_id, dim_id, i, xtype, temp
       integer, dimension(:), allocatable :: ids
       character(len=StrKIND) :: elem_name
     
@@ -314,14 +318,18 @@ module mpas_file_manip
 !         end if
 
          do i=1, f%nvars
-            ierr = nf90_inquire_variable(f%ncid, i, name=elem_name)
+            ierr = nf90_inquire_variable(f%ncid, i, name=elem_name, xtype=xtype)
             if (ierr /= NF90_NOERR) then
                write(0,*) '*********************************************************************************'
                write(0,*) 'Error inquiring var name in '//f%filename
                write(0,*) 'ierr = ', ierr
                write(0,*) '*********************************************************************************'
             end if
-
+            if (trim(elem_name) == 'latCell') then
+               if (xtype == NF90_FLOAT) then
+                  write (0,*) "This file is in float"
+               end if
+            end if
             f%vars(i) = elem_name
          end do
 
@@ -1072,6 +1080,7 @@ module mpas_file_manip
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
          write(0,*) 'Error ending define mode'
+         write (0,*) "ierr == NC_ELATEFILL:", ierr == NC_ELATEFILL
          write(0,*) 'ierr = ', ierr
          write(0,*) '*********************************************************************************'
       end if
@@ -2047,6 +2056,7 @@ module mpas_file_manip
       type(ncfile) :: f
       integer :: ierr
 
+      write (0,*) "a"
       ierr = nf90_close(f%ncid)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
@@ -2055,7 +2065,9 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
          stop
       end if
+      write (0,*) "b"
       call f%clean()
+      write (0,*) "c"
    end subroutine
 
 end module mpas_file_manip 

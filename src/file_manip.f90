@@ -2083,7 +2083,6 @@ module mpas_file_manip
       type(ncfile) :: f
       integer :: ierr
 
-      write (0,*) "a"
       ierr = nf90_close(f%ncid)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
@@ -2092,9 +2091,7 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
          stop
       end if
-      write (0,*) "b"
       call f%clean()
-      write (0,*) "c"
    end subroutine
 
 end module mpas_file_manip 

@@ -64,12 +64,9 @@ module mpas_file_manip
       
       class(ncfile) :: this
       
-      write (0,*) "aa"
       if (associated(this%dims)) deallocate(this%dims)
       if (associated(this%vars)) deallocate(this%vars)
-      write (0,*) "bb"
       if (associated(this%atts)) deallocate(this%atts)
-      write (0,*) "cc"
 
       this%filename = ' '
       this%ncid = 0
@@ -79,7 +76,6 @@ module mpas_file_manip
       this%nCells = 0
       this%nEdges = 0
       this%nVertices = 0
-      write (0,*) "dd"
 
    end subroutine clean
 
@@ -381,7 +377,7 @@ module mpas_file_manip
 
 
       case('CREATE')
-         ierr = nf90_create(f%filename, NF90_CLOBBER, f%ncid)
+         ierr = nf90_create(f%filename, NF90_64BIT_OFFSET, f%ncid)
          if (ierr /= NF90_NOERR) then
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error creating file '//f%filename
@@ -1373,7 +1369,7 @@ module mpas_file_manip
       character(len=StrKIND) :: var_name
 
       integer :: var_id, n, i
-      integer, dimension(2) :: temp
+      integer, dimension(1) :: temp
 
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1383,8 +1379,23 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
       end if
 
-      n = len(trim(field))
-      ierr = nf90_put_var(f%ncid, var_id, trim(field), (/1/), (/n/), (/1/))
+      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring variable '//trim(var_name)//' in put 1dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, temp(1), len=n)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring a dimension of '//trim(var_name)//' in put 1dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+      
+      ierr = nf90_put_var(f%ncid, var_id, field, count=(/n/)) !(/1/), (/n/), (/1/))
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
          write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dCHAR'
@@ -1398,7 +1409,7 @@ module mpas_file_manip
       character(len=StrKIND), dimension(:), pointer :: field
       character(len=StrKIND) :: var_name
 
-      integer :: var_id, n, i
+      integer :: var_id, n, i, str_len
       integer, dimension(2) :: temp
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1423,9 +1434,17 @@ module mpas_file_manip
          write(0,*) 'ierr = ', ierr
          write(0,*) '*********************************************************************************'
       end if
+
+      ierr = nf90_inquire_dimension(f%ncid, temp(1), len=str_len)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
       
       do i=1, n
-         ierr = nf90_put_var(f%ncid, var_id, trim(field(i)))
+         ierr = nf90_put_var(f%ncid, var_id, field(i), count=(/str_len/))
          if (ierr /= NF90_NOERR) then
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dCHAR'
@@ -1440,7 +1459,7 @@ module mpas_file_manip
       character(len=StrKIND), dimension(:,:), pointer :: field
       character(len=StrKIND) :: var_name
 
-      integer :: var_id, n1, n2, i, j
+      integer :: var_id, n1, n2, i, j, str_len
       integer, dimension(3) :: temp
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1451,6 +1470,14 @@ module mpas_file_manip
       end if
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
+      if (ierr /= NF90_NOERR) then
+         write(0,*) '*********************************************************************************'
+         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
+         write(0,*) 'ierr = ', ierr
+         write(0,*) '*********************************************************************************'
+      end if
+
+      ierr = nf90_inquire_dimension(f%ncid, temp(1), len=str_len)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
          write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
@@ -1476,7 +1503,7 @@ module mpas_file_manip
       
       do i=1, n2
       do j=1, n1
-         ierr = nf90_put_var(f%ncid, var_id, trim(field(j,i)))
+         ierr = nf90_put_var(f%ncid, var_id, field(j,i), count=(/str_len/))
          if (ierr /= NF90_NOERR) then
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error putting variable '//trim(var_name)//' in put 3dCHAR'

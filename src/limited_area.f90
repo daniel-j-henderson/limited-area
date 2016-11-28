@@ -239,6 +239,9 @@
 
          ! Copy all variables from the input file to the output
          do i=1, ncin%nvars
+            if (trim(ncin%vars(i)) == 'indexToCellID') cycle
+            if (trim(ncin%vars(i)) == 'indexToVertexID') cycle
+            if (trim(ncin%vars(i)) == 'indexToEdgeID') cycle
             if (.not. is_static(trim(ncin%vars(i)))) &
                call copy_variable_datamode(ncin, ncout, ncin%vars(i), cell_map, edge_map, vertex_map)
          end do

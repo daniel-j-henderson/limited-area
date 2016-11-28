@@ -461,6 +461,9 @@ module mpas_file_manip
             'nEdges' .or. trim(ncin%dims(i)) == 'nVertices') cycle
          if (ncout%contains_elem(DIM, ncin%dims(i))) cycle
          call get_dimension(ncin, ncin%dims(i), field)
+         if (trim(ncin%dims(i)) == 'Time') then
+            field = NF90_UNLIMITED
+         end if
          call add_dimension(ncout, ncin%dims(i), field)
       end do
 
@@ -621,7 +624,6 @@ module mpas_file_manip
             write(0,*) 'shape(field):',  ncout%nEdges
             write(0,*) '*********************************************************************************'
          end if  
-         write (0,*) "exit"
          return
       end if
 
@@ -1275,7 +1277,10 @@ module mpas_file_manip
       character(len=*) :: var_name
 
       integer :: var_id
-      
+      integer, dimension(2) :: st, ct
+
+      ct = shape(field)      
+      st = (/1,1/)
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
@@ -1284,7 +1289,7 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
       end if
 
-      ierr = nf90_put_var(f%ncid, var_id, field)
+      ierr = nf90_put_var(f%ncid, var_id, field, start = st, count = ct)
       if (ierr /= NF90_NOERR) then
          write(0,*) '*********************************************************************************'
          write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dREAL'
@@ -1410,6 +1415,7 @@ module mpas_file_manip
       character(len=StrKIND) :: var_name
 
       integer :: var_id, n, i, str_len
+      integer, dimension(1) :: nn
       integer, dimension(2) :: temp
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
       if (ierr /= NF90_NOERR) then
@@ -1443,8 +1449,11 @@ module mpas_file_manip
          write(0,*) '*********************************************************************************'
       end if
       
+      nn = shape(field)
+      n = nn(1)
+
       do i=1, n
-         ierr = nf90_put_var(f%ncid, var_id, field(i), count=(/str_len/))
+         ierr = nf90_put_var(f%ncid, var_id, field(i), count=(/str_len/))!, start = (/i/))
          if (ierr /= NF90_NOERR) then
             write(0,*) '*********************************************************************************'
             write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dCHAR'

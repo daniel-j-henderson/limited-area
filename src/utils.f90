@@ -38,7 +38,7 @@
       bdyMaskCell = UNMARKED
       nCells = size(bdyMaskCell)
       select case (regionType)
-      case (RCIRCULAR)
+      case (RCIRCULAR) ! Circular Regions
          ! rparams = (/lat, lon, circle_region_radius/)
          if (rparams(3) > PI * radius) then
             write (0,*) "Error: The radius you provided for your circular region is greater than the radius of the MPAS mesh * PI. Please provide a new radius."
@@ -51,8 +51,8 @@
                bdyMaskCell(i) = INSIDE
          end do
 
-      case (RELLIPTICAL)
-         ! rparams = (/lat_right, lon_right, lat_left, lon_left, minor_axis_length_degrees/)   
+      case (RELLIPTICAL) ! Elliptical Regions 
+         ! rparams == (/lat_right, lon_right, lat_left, lon_left, minor_axis_length_degrees/)   
 
          lat_left= rparams(1) * PI / 180.0 ! leftmost point on major axis
          lon_left = rparams(2) * PI / 180.0
@@ -95,7 +95,10 @@
          end do
       case default
       end select
-
+         
+      ! Starting from a point known to be inside the region, mark all cells
+      ! starting from the inside cell as INSIDE. Stops at the boundary. Then
+      ! mark all unmarked neighbors of INSIDE cells as BOUNDARY1, and so on.
       call mark_neighbors_of_type(INSIDE, BOUNDARY1, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY1, BOUNDARY2, bdyMaskCell, cellsOnCell, nEdgesOnCell)
       call mark_neighbors_of_type(BOUNDARY2, BOUNDARY3, bdyMaskCell, cellsOnCell, nEdgesOnCell)
@@ -109,7 +112,10 @@
 
 
     subroutine create_boundary_custom(nCells, radius, bdy_pts, inside_pt, bdyMaskCell, nEdgesOnCell, cellsOnCell, latCell, lonCell)
-
+    ! Finds the boundary of cells that connect the given custom points from
+    ! points.txt such that the boundary most closely follows the arc from point
+    ! to point. Below are 2 commented out versions that use different algorithms
+    ! to find the boundary and don't usually look as good as follow-the-line.
 
       implicit none
 
@@ -510,106 +516,103 @@
    end subroutine
 
 
-!==================================================================================================
- integer function nearest_cell_path(target_lat, target_lon, start_cell, nCells, maxEdges, &
-                               nEdgesOnCell, cellsOnCell, latCell, lonCell)
-!==================================================================================================
- implicit none
-
- real (kind=RKIND), intent(in) :: target_lat, target_lon
- integer, intent(in) :: start_cell
- integer, intent(in) :: nCells, maxEdges
- integer, dimension(nCells), intent(in) :: nEdgesOnCell
- integer, dimension(maxEdges,nCells), intent(in) :: cellsOnCell
- real (kind=RKIND), dimension(nCells), intent(in) :: latCell, lonCell
-
- integer :: i
- integer :: iCell
- integer :: current_cell
- real (kind=RKIND) :: current_distance, d
- real (kind=RKIND) :: nearest_distance
-
- nearest_cell_path = start_cell
- current_cell = -1
-
- do while (nearest_cell_path /= current_cell)
-    current_cell = nearest_cell_path
-    current_distance = sphere_distance(latCell(current_cell), lonCell(current_cell), target_lat, &
-                                       target_lon, 1.0_RKIND)
-    nearest_cell_path = current_cell
-    nearest_distance = current_distance
-    do i = 1, nEdgesOnCell(current_cell)
-       iCell = cellsOnCell(i,current_cell)
-       if (iCell <= nCells) then
-          d = sphere_distance(latCell(iCell), lonCell(iCell), target_lat, target_lon, 1.0_RKIND)
-          if (d < nearest_distance) then
-             nearest_cell_path = iCell
-             nearest_distance = d
-          end if
-       end if
-    end do
- end do
-
- end function nearest_cell_path
-
- function cross(u, v)
- implicit none
-
- real (kind=RKIND), dimension(3), intent(in) :: u, v
- real (kind=RKIND), dimension(3) :: cross
-
-   cross(1) = u(2) * v(3) - v(2) * u(3)
-   cross(2) = u(3) * v(1) - v(3) * u(1) 
-   cross(3) = u(1) * v(2) - v(1) * u(2) 
-
- end function cross
-
-
- real(kind=RKIND) function dot(u, v)
- implicit none
-
- real (kind=RKIND), dimension(3), intent(in) :: u, v
-
- dot = u(1) * v(1) + u(2) * v(2) + u(3) * v(3)
-
- end function dot
-
- real(kind=RKIND) function mag(u)
- implicit none
-
- real (kind=RKIND), dimension(3), intent(in) :: u
-
- mag = u(1)**2 + u(2)**2 + u(3)**2
- mag = sqrt(mag)
- end function mag
-
- function angleBetween(a, b)
+   integer function nearest_cell_path(target_lat, target_lon, start_cell, nCells, maxEdges, &
+                                 nEdgesOnCell, cellsOnCell, latCell, lonCell)
+   ! This function finds the nearest cell to a given point by starting at an
+   ! arbitrary start cell and using a greedy nearest-neighbor method to find the
+   ! closest cell to the point.
    implicit none
-   real(kind=RKIND), dimension(3), intent(in) :: a, b
-   real(kind=RKIND) :: angleBetween
 
-   angleBetween = acos(dot(a, b) / (mag(a) * mag(b)))
+   real (kind=RKIND), intent(in) :: target_lat, target_lon
+   integer, intent(in) :: start_cell
+   integer, intent(in) :: nCells, maxEdges
+   integer, dimension(nCells), intent(in) :: nEdgesOnCell
+   integer, dimension(maxEdges,nCells), intent(in) :: cellsOnCell
+   real (kind=RKIND), dimension(nCells), intent(in) :: latCell, lonCell
 
- end function angleBetween
+   integer :: i
+   integer :: iCell
+   integer :: current_cell
+   real (kind=RKIND) :: current_distance, d
+   real (kind=RKIND) :: nearest_distance
 
- function rot(v, k, phi)
+   nearest_cell_path = start_cell
+   current_cell = -1
+
+   do while (nearest_cell_path /= current_cell)
+      current_cell = nearest_cell_path
+      current_distance = sphere_distance(latCell(current_cell), lonCell(current_cell), target_lat, &
+                                         target_lon, 1.0_RKIND)
+      nearest_cell_path = current_cell
+      nearest_distance = current_distance
+      do i = 1, nEdgesOnCell(current_cell)
+         iCell = cellsOnCell(i,current_cell)
+         if (iCell <= nCells) then
+            d = sphere_distance(latCell(iCell), lonCell(iCell), target_lat, target_lon, 1.0_RKIND)
+            if (d < nearest_distance) then
+               nearest_cell_path = iCell
+               nearest_distance = d
+            end if
+         end if
+      end do
+   end do
+
+   end function nearest_cell_path
+
+   function cross(u, v)
    implicit none
-   real(kind=RKIND), dimension(3) :: rot
-   real(kind=RKIND), dimension(3), intent(in) :: v, k
-   real(kind=RKIND) :: phi
 
-   rot = v*cos(phi) + cross(k, v)*sin(phi) + v*dot(k, v)*(1-cos(phi))
+   real (kind=RKIND), dimension(3), intent(in) :: u, v
+   real (kind=RKIND), dimension(3) :: cross
 
- end function rot
+     cross(1) = u(2) * v(3) - v(2) * u(3)
+     cross(2) = u(3) * v(1) - v(3) * u(1) 
+     cross(3) = u(1) * v(2) - v(1) * u(2) 
+
+   end function cross
 
 
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   ! SUBROUTINE CONVERT_XL
-   !
-   ! Convert (x, y, z) to a (lat, lon) location on a sphere with
-   !    radius sqrt(x^2 + y^2 + z^2).
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   real(kind=RKIND) function dot(u, v)
+   implicit none
+
+   real (kind=RKIND), dimension(3), intent(in) :: u, v
+
+   dot = u(1) * v(1) + u(2) * v(2) + u(3) * v(3)
+
+   end function dot
+
+   real(kind=RKIND) function mag(u)
+   implicit none
+
+   real (kind=RKIND), dimension(3), intent(in) :: u
+
+   mag = u(1)**2 + u(2)**2 + u(3)**2
+   mag = sqrt(mag)
+   end function mag
+
+   function angleBetween(a, b)
+     implicit none
+     real(kind=RKIND), dimension(3), intent(in) :: a, b
+     real(kind=RKIND) :: angleBetween
+
+     angleBetween = acos(dot(a, b) / (mag(a) * mag(b)))
+
+   end function angleBetween
+
+   function rot(v, k, phi)
+     implicit none
+     real(kind=RKIND), dimension(3) :: rot
+     real(kind=RKIND), dimension(3), intent(in) :: v, k
+     real(kind=RKIND) :: phi
+
+     rot = v*cos(phi) + cross(k, v)*sin(phi) + v*dot(k, v)*(1-cos(phi))
+
+   end function rot
+
+
    subroutine con_xl(x, y, z, lat, lon)
+   !This function converts cartesian coordinates to lat-lon. Taken from the MPAS
+   !source code.   
    
       implicit none
    

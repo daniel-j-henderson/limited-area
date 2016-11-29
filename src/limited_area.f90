@@ -206,10 +206,6 @@
             allocate(bdyMaskVertexLocal(nVerticesLocal))
             call compact_field_1dINT(bdyMaskVertex, bdyMaskVertexLocal, vertex_map)
             call create_variable_1dINT(ncout, 'bdyMaskVertex', 'nVertices')
-            ! these 3 variables are just simpler to make separately
-            call create_variable_1dINT(ncout, 'indexToCellID', 'nCells')
-            call create_variable_1dINT(ncout, 'indexToEdgeID', 'nEdges')
-            call create_variable_1dINT(ncout, 'indexToVertexID', 'nVertices')
 
             call copyandcompact_static_fields(ncin, ncout, cell_map, edge_map, vertex_map, icell_map, iedge_map, ivertex_map)
 
@@ -226,12 +222,7 @@
             call put_variable_1dINT(ncout, bdyMaskVertexLocal, 'indexToVertexID')
          else
             ierr = nf90_enddef(ncout%ncid)
-            if (ierr /= NF90_NOERR) then
-               write(0,*) '*********************************************************************************'
-               write(0,*) 'Error ending define mode'
-               write(0,*) 'ierr = ', ierr
-               write(0,*) '*********************************************************************************'
-            end if
+            if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_enddef', .true., 'main', f%filename)
          end if
       
 

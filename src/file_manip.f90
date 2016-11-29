@@ -5,9 +5,12 @@ module mpas_file_manip
    use params
    
 
-   character(len=StrKIND), dimension(2), parameter :: &
+   character(len=StrKIND), dimension(5), parameter :: &
       static_vars_1dINT =[character(len=StrKIND) :: 'nEdgesOnCell', &
-                           'nEdgesOnEdge']
+                           'nEdgesOnEdge', &
+                           'indexToCellID', &
+                           'indexToEdgeID', &
+                           'indexToVertexID']
 
    character(len=StrKIND), dimension(8), parameter :: &
       static_vars_2dINT =[character(len=StrKIND) :: 'edgesOnCell', &
@@ -112,12 +115,6 @@ module mpas_file_manip
 
    end subroutine set_file_equal
 
-
-
-
-
-
- 
 
    logical function is_open(this)
       implicit none
@@ -265,126 +262,65 @@ module mpas_file_manip
       case('NF90_NOWRITE')
 
          ierr = nf90_open(trim(f%filename), NF90_NOWRITE, f%ncid)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error opening NetCDF file '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-            stop
-         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_open', .false., 'open_mpas_file', f%filename)
 
          ierr = nf90_inquire(f%ncid, f%ndims, f%nvars, f%natts)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring about '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
-
-!         if (allocated(ids)) deallocate(ids)
-!         allocate(ids(f%ndims))
-!         ierr = nf90_inq_dimids(f%ncid, temp, ids, i)
-!         if (ierr /= NF90_NOERR) then
-!            write(0,*) '*********************************************************************************'
-!            write(0,*) 'Error inquiring dimids in '//f%filename
-!            write(0,*) 'ierr = ', ierr
-!            write(0,*) '*********************************************************************************'
-!         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire', .false., 'open_mpas_file', f%filename)
 
          do i=1, f%ndims
             ierr = nf90_inquire_dimension(f%ncid, i, name=elem_name)
-            if (ierr /= NF90_NOERR) then
-               write(0,*) '*********************************************************************************'
-               write(0,*) 'Error inquiring dim name in '//f%filename
-               write(0,*) 'ierr = ', ierr
-               write(0,*) '*********************************************************************************'
-            end if
+            if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .false., 'open_mpas_file', f%filename)
 
             f%dims(i) = elem_name
          end do
 
-!         if(allocated(ids)) deallocate(ids)
-!         allocate(ids(f%nvars))
-!         ierr = nf90_inq_varids(f%ncid, temp, ids)
-!         if (ierr /= NF90_NOERR) then
-!            write(0,*) '*********************************************************************************'
-!            write(0,*) 'Error inquiring varids in '//f%filename
-!            write(0,*) 'ierr = ', ierr
-!            write(0,*) '*********************************************************************************'
-!         end if
-
          do i=1, f%nvars
-            ierr = nf90_inquire_variable(f%ncid, i, name=elem_name, xtype=xtype)
-            if (ierr /= NF90_NOERR) then
-               write(0,*) '*********************************************************************************'
-               write(0,*) 'Error inquiring var name in '//f%filename
-               write(0,*) 'ierr = ', ierr
-               write(0,*) '*********************************************************************************'
-            end if
-            if (trim(elem_name) == 'latCell') then
-               if (xtype == NF90_FLOAT) then
-                  write (0,*) "This file is in float"
-               end if
-            end if
+            ierr = nf90_inquire_variable(f%ncid, i, name=elem_name)
+            if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .false., 'open_mpas_file', f%filename)
+
             f%vars(i) = elem_name
          end do
 
-
          ierr = nf90_inq_dimid(f%ncid, 'nCells', dim_id)
          if (ierr /= NF90_NOERR) then
-            write(0,*) 'nCells not present in '//f%filename
+            call handle_err(ierr, 'nf90_inq_dimid', .false., 'open_mpas_file', f%filename)
             f%nCells = -1
          else
             ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nCells)
             if (ierr /= NF90_NOERR) then
-               write(0,*) '*********************************************************************************'
-               write(0,*) 'Error inquiring nCells in '//f%filename
-               write(0,*) 'ierr = ', ierr
-               write(0,*) '*********************************************************************************'
+               call handle_err(ierr, 'nf90_inquire_dimension', .false., 'open_mpas_file', f%filename)
                f%nCells = -1
             end if
          end if
 
          ierr = nf90_inq_dimid(f%ncid, 'nEdges', dim_id)
          if (ierr /= NF90_NOERR) then
-            f%nCells = -1
-            write(0,*) 'nEdges not present in '//f%filename
+            call handle_err(ierr, 'nf90_inq_dimid', .false., 'open_mpas_file', f%filename)
+            f%nEdges = -1
          else
             ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nEdges)
             if (ierr /= NF90_NOERR) then
-               write(0,*) '*********************************************************************************'
-               write(0,*) 'Error inquiring nEdges in '//f%filename
-               write(0,*) 'ierr = ', ierr
-               write(0,*) '*********************************************************************************'
+               call handle_err(ierr, 'nf90_inquire_dimension', .false., 'open_mpas_file', f%filename)
                f%nEdges = -1
             end if
          end if
 
          ierr = nf90_inq_dimid(f%ncid, 'nVertices', dim_id)
          if (ierr /= NF90_NOERR) then
+            call handle_err(ierr, 'nf90_inq_dimid', .false., 'open_mpas_file', f%filename)
             f%nVertices = -1
-            write(0,*) 'nVertices not present in '//f%filename
-         else 
+         else
             ierr = nf90_inquire_dimension(f%ncid, dim_id, len=f%nVertices)
             if (ierr /= NF90_NOERR) then
-               write(0,*) '*********************************************************************************'
-               write(0,*) 'Error inquiring nVertices in '//f%filename
-               write(0,*) 'ierr = ', ierr
-               write(0,*) '*********************************************************************************'
+               call handle_err(ierr, 'nf90_inquire_dimension', .false., 'open_mpas_file', f%filename)
                f%nVertices = -1
             end if
          end if
 
-
       case('CREATE')
-         ierr = nf90_create(f%filename, NF90_64BIT_OFFSET, f%ncid)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error creating file '//f%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
-      
+         ierr = nf90_create(f%filename, NF90_CLOBBER, f%ncid)
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_create', .true., 'open_mpas_file', f%filename)
+
       case default
          write (0,*) "Bad open mode"
          stop
@@ -402,20 +338,10 @@ module mpas_file_manip
       integer :: ierr, id
       
       ierr = nf90_inq_dimid(f%ncid, trim(dim_name), id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring '//trim(dim_name)//' dimid in'//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .false., 'get_dimension', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, id, len=field)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension '//trim(dim_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'         
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .false., 'get_dimension', f%filename)
    end subroutine get_dimension
 
    subroutine add_dimension(f, dim_name, field)
@@ -439,12 +365,7 @@ module mpas_file_manip
       call f%add_dim_record(dim_name)
 
       ierr = nf90_def_dim(f%ncid, dim_name, field, dimid)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error defining dimension '//trim(dim_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'         
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_def_dim', .false., 'add_dimension', f%filename)
 
    end subroutine add_dimension
 
@@ -482,55 +403,26 @@ module mpas_file_manip
       character(len=StrKIND), dimension(:), allocatable :: dims
 
       ierr = nf90_inq_varid(ncin%ncid, trim(var_name), var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in copy def mode'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'copy_variable_defmode', ncin%filename)
 
       ierr = nf90_inquire_variable(ncin%ncid, var_id, xtype=xtype, ndims=ndims)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in copy def mode'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'copy_variable_defmode', ncin%filename)
 
 
       if (ndims == 0) then
          ierr = nf90_def_var(ncout%ncid, var_name, xtype, varid=var_id)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error defining variable '//trim(var_name)//' in copy def mode'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-            stop
-         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_def_var', .true., 'copy_variable_defmode', ncout%filename)
          return
       end if
    
       allocate(dimids(ndims), dims(ndims), newdimids(ndims))
 
       ierr = nf90_inquire_variable(ncin%ncid, var_id, dimids=dimids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in copy def mode'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'copy_variable_defmode', ncin%filename)
 
       do i=1, ndims
          ierr = nf90_inquire_dimension(ncin%ncid, dimids(i), dims(i))
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring dimension in copy def mode'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .false., 'copy_variable_defmode', ncin%filename)
 
          if (.not. ncout%contains_elem(DIM, dims(i))) then
             write (0,*) "Trying to copy a variable whose dimensions are not in ncout"
@@ -538,22 +430,11 @@ module mpas_file_manip
          end if 
 
          ierr = nf90_inq_dimid(ncout%ncid, dims(i), newdimids(i))
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring dimension in copy def mode'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .false., 'copy_variable_defmode', ncout%filename)
       end do
       
       ierr = nf90_def_var(ncout%ncid, var_name, xtype, newdimids, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error defining variable '//trim(var_name)//' in copy def mode'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_def_var', .true., 'copy_variable_defmode', ncout%filename)
 
    end subroutine copy_variable_defmode
 
@@ -582,48 +463,20 @@ module mpas_file_manip
       real(kind=RKIND) :: const
 
       ierr = nf90_inq_varid(ncin%ncid, trim(var_name), var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in copy def mode'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'copy_variable_datamode', ncin%filename)
 
       ierr = nf90_inquire_variable(ncin%ncid, var_id, xtype=xtype, ndims=ndims)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in copy def mode'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .false., 'copy_variable_datamode', ncin%filename)
 
       if (ndims == 0) then
          ierr = nf90_get_var(ncin%ncid, var_id, const)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error getting variable '//trim(var_name)//' in '//ncin%filename
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-            stop
-         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .false., 'copy_variable_datamode', ncin%filename)
+
          ierr = nf90_inq_varid(ncout%ncid, trim(var_name), var_id)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error inquiring varID of '//trim(var_name)//' in copy def mode'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-            stop
-         end if
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'copy_variable_datamode', ncin%filename)
+
          ierr = nf90_put_var(ncout%ncid, var_id, const)
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error putting variable '//trim(var_name)//' putting constant var'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) 'shape(field):',  ncout%nEdges
-            write(0,*) '*********************************************************************************'
-         end if  
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'copy_variable_datamode', ncin%filename)
          return
       end if
 
@@ -844,8 +697,6 @@ module mpas_file_manip
          write (0,*) "xtype, REAL, DOUBLE, FLOAT, INT", xtype, NF90_REAL, NF90_DOUBLE, NF90_FLOAT, NF90_INT
       end if
    end subroutine copy_variable_datamode  
-       
-
 
    subroutine create_variable_1dINT(f, var_name, dim_name)
       implicit none
@@ -856,13 +707,7 @@ module mpas_file_manip
       integer :: ierr, dimid, varid
 
       ierr = nf90_inq_dimid(f%ncid, dim_name, dimid)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimID of '//trim(dim_name)//' in create_variable_1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .false., 'create_field_1dINT', f%filename)
       
       if (.not. f%nvars < MAX_NVARS) then
          write (0,*) "ERROR: Trying to add too many variables to "//f%filename
@@ -877,15 +722,9 @@ module mpas_file_manip
       call f%add_var_record(var_name)
 
       ierr = nf90_def_var(f%ncid, var_name, NF90_INT, (/dimid/), varid)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error defining variable'//trim(var_name)//'in create_variable_1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_def_var', .false., 'create_field_1dINT', f%filename)
    end subroutine create_variable_1dINT
-
+ 
    subroutine create_static_field_1d(ncout, ncin, var_name)
    ! More accurately, copy static field definition from one file to another
       implicit none
@@ -897,38 +736,16 @@ module mpas_file_manip
       character(len=StrKIND) :: dim_name
       
       ierr = nf90_inq_varid(ncin%ncid, trim(var_name), var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in create_static_field_1d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'create_static_field_1d', ncout%filename)
 
       ierr = nf90_inquire_variable(ncin%ncid, var_id, xtype=xtype, dimids=dimids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable in create_static_field_1d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .false., 'create_static_field_1d', ncout%filename)
 
       ierr = nf90_inquire_dimension(ncin%ncid, dimids(1), dim_name, n) 
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension in create_static_field_1d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .false., 'create_static_field_1d', ncout%filename)
 
       ierr = nf90_inq_dimid(ncout%ncid, dim_name, dimids(1))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimID of '//trim(dim_name)//' in create_static_field_1d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .false., 'create_static_field_1d', ncout%filename)
 
       if (.not. ncout%nvars < MAX_NVARS) then
          write (0,*) "ERROR: Trying to add too many variables to "//ncout%filename
@@ -943,12 +760,7 @@ module mpas_file_manip
       call ncout%add_var_record(var_name)
 
       ierr = nf90_def_var(ncout%ncid, var_name, xtype, dimids, temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error defining variable '//trim(var_name)//' in create_static_field_1d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_def_var', .false., 'create_static_field_1d', ncout%filename)
    
    end subroutine create_static_field_1d
 
@@ -961,55 +773,22 @@ module mpas_file_manip
       character(len=StrKIND) :: dim_name
       
       ierr = nf90_inq_varid(ncin%ncid, trim(var_name), var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'create_static_field_2d', ncout%filename)
 
       ierr = nf90_inquire_variable(ncin%ncid, var_id, xtype=xtype, dimids=dimids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .false., 'create_static_field_2d', ncout%filename)
 
       ierr = nf90_inquire_dimension(ncin%ncid, dimids(2), dim_name) 
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .false., 'create_static_field_2d', ncout%filename)
 
       ierr = nf90_inq_dimid(ncout%ncid, dim_name, dimids(2))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimID of '//trim(dim_name)//' in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .false., 'create_static_field_2d', ncout%filename)
 
       ierr = nf90_inquire_dimension(ncin%ncid, dimids(1), dim_name) 
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .false., 'create_static_field_2d', ncout%filename)
 
       ierr = nf90_inq_dimid(ncout%ncid, dim_name, dimids(1))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimID of '//trim(dim_name)//' in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .false., 'create_static_field_2d', ncout%filename)
 
       if (.not. ncout%nvars < MAX_NVARS) then
          write (0,*) "ERROR: Trying to add too many variables to "//ncout%filename
@@ -1024,12 +803,7 @@ module mpas_file_manip
       call ncout%add_var_record(var_name)
 
       ierr = nf90_def_var(ncout%ncid, var_name, xtype, dimids, temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error defining variable in create_static_field_2d'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_def_var', .false., 'create_static_field_2d', ncout%filename)
    
    end subroutine create_static_field_2d
 
@@ -1092,7 +866,6 @@ module mpas_file_manip
          else if (size(field_1dINT) == ncin%nEdges) then
             allocate(newfield_1dINT(ncout%nEdges))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, edge_map)
-            if (ncout%nEdges .ne. size(newfield_1dINT)) write (0,*) 'dims dont match, nEdges, size(field):', ncout%nEdges, size(newfield_1dINT)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          else if (size(field_1dINT) == ncin%nVertices) then
             allocate(newfield_1dINT(ncout%nVertices))
@@ -1180,122 +953,41 @@ module mpas_file_manip
    end subroutine copyandcompact_static_fields
 
 
+
+!****************************************************************************!
+!                                                                            !
+!  Routines to put variable data of type real into a netcdf file where the   ! 
+!  variable is already defined.                                              !
+!                                                                            !
+!****************************************************************************!
+
+
    subroutine put_variable_1dREAL(f, field, var_name)
       type(ncfile) :: f 
       real(kind=RKIND), dimension(:), pointer :: field
       character(len=*) :: var_name
 
-      integer :: var_id, n
-      integer, dimension(1) :: temp
-      
-      ierr = nf90_inq_varid(f%ncid, trim(var_name), var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dREAL'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      integer :: var_id
 
-      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
-      ierr = nf90_inquire_dimension(f%ncid, temp(1), len=n)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
-      if(size(field) .ne. n) write (0,*) "size(field), n:", size(field), n, var_name
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'put_variable_1dREAL', f%filename)
 
       ierr = nf90_put_var(f%ncid, var_id, field)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dREAL'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) 'shape(field), f%nEdges:', shape(field), f%nEdges
-         write(0,*) '*********************************************************************************'
-      end if  
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'put_variable_1dREAL', f%filename)
    end subroutine put_variable_1dREAL
-
    
-   subroutine put_variable_1dINT(f, field, var_name)
-      type(ncfile) :: f
-      integer, dimension(:), pointer :: field
-      character(len=*) :: var_name
-
-      integer :: var_id, n
-      integer, dimension(1) :: temp
-      
-      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
-      ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
-      ierr = nf90_inquire_dimension(f%ncid, temp(1), len=n)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
-      if(size(field) .ne. n) write (0,*) "size(field), n:", size(field), n, var_name
-
-      ierr = nf90_put_var(f%ncid, var_id, field, start=(/1/), count=(/size(field)/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) 'shape(field), f%nEdges:', shape(field), f%nEdges
-         write(0,*) '*********************************************************************************'
-      end if  
-
-   end subroutine put_variable_1dINT
-
-
    subroutine put_variable_2dREAL(f, field, var_name)
       type(ncfile) :: f
       real(kind=RKIND), dimension(:,:), pointer :: field
       character(len=*) :: var_name
 
-      integer :: var_id
-      integer, dimension(2) :: st, ct
-
-      ct = shape(field)      
-      st = (/1,1/)
+      integer :: i, var_id
+      
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dREAL'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'put_variable_2dREAL', f%filename)
 
-      ierr = nf90_put_var(f%ncid, var_id, field, start = st, count = ct)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dREAL'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if  
+      ierr = nf90_put_var(f%ncid, var_id, field)
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'put_variable_2dREAL', f%filename)
    end subroutine put_variable_2dREAL
 
    subroutine put_variable_3dREAL(f, field, var_name)
@@ -1306,21 +998,36 @@ module mpas_file_manip
       integer :: var_id
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dREAL'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'put_variable_3dREAL', f%filename)
 
       ierr = nf90_put_var(f%ncid, var_id, field)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 3dREAL'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if  
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'put_variable_3dREAL', f%filename)
    end subroutine put_variable_3dREAL
+
+
+
+!****************************************************************************!
+!                                                                            !
+!  Routines to put variable data of type int into a netcdf file where the    ! 
+!  variable is already defined.                                              !
+!                                                                            !
+!****************************************************************************!
+
+
+   subroutine put_variable_1dINT(f, field, var_name)
+      type(ncfile) :: f
+      integer, dimension(:), pointer :: field
+      character(len=*) :: var_name
+
+      integer :: var_id
+
+      ierr = nf90_inq_varid(f%ncid, var_name, var_id)
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'put_variable_1dINT', f%filename)
+
+      ierr = nf90_put_var(f%ncid, var_id, field)
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'put_variable_1dINT', f%filename)
+
+   end subroutine put_variable_1dINT
 
    subroutine put_variable_2dINT(f, field, var_name)
       type(ncfile) :: f
@@ -1330,19 +1037,10 @@ module mpas_file_manip
       integer :: var_id
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'put_variable_2dINT', f%filename)
+
       ierr = nf90_put_var(f%ncid, var_id, field)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if  
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'put_variable_2dINT', f%filename)
    end subroutine put_variable_2dINT
 
    subroutine put_variable_3dINT(f, field, var_name)
@@ -1353,20 +1051,21 @@ module mpas_file_manip
       integer :: var_id
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .false., 'put_variable_3dINT', f%filename)
+
       ierr = nf90_put_var(f%ncid, var_id, field)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 3dINT'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if  
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .false., 'put_variable_3dINT', f%filename)
    end subroutine put_variable_3dINT
+
+
+
+!****************************************************************************!
+!                                                                            !
+!  Routines to put variable data of type char into a netcdf file where the   ! 
+!  variable is already defined.                                              !
+!                                                                            !
+!****************************************************************************!
+
 
    subroutine put_variable_1dCHAR(f, field, var_name)
       type(ncfile) :: f
@@ -1377,36 +1076,16 @@ module mpas_file_manip
       integer, dimension(1) :: temp
 
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 1dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'put_variable_1dCHAR', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in put 1dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'put_variable_1dCHAR', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, temp(1), len=n)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring a dimension of '//trim(var_name)//' in put 1dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'put_variable_1dCHAR', f%filename)
       
       ierr = nf90_put_var(f%ncid, var_id, field, count=(/n/)) !(/1/), (/n/), (/1/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error putting variable '//trim(var_name)//' in put 1dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if  
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .true., 'put_variable_1dCHAR', f%filename)
    end subroutine put_variable_1dCHAR
 
    subroutine put_variable_2dCHAR(f, field, var_name)
@@ -1418,48 +1097,21 @@ module mpas_file_manip
       integer, dimension(1) :: nn
       integer, dimension(2) :: temp
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'put_variable_2dCHAR', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'put_variable_2dCHAR', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, temp(2), len=n)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, temp(1), len=str_len)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 2dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'put_variable_2dCHAR', f%filename)
       
       nn = shape(field)
       n = nn(1)
 
       do i=1, n
          ierr = nf90_put_var(f%ncid, var_id, field(i), count=(/str_len/))!, start = (/i/))
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error putting variable '//trim(var_name)//' in put 2dCHAR'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if  
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .true., 'put_variable_2dCHAR', f%filename)
       end do
    end subroutine put_variable_2dCHAR
 
@@ -1470,58 +1122,34 @@ module mpas_file_manip
 
       integer :: var_id, n1, n2, i, j, str_len
       integer, dimension(3) :: temp
+
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'put_variable_3dCHAR', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=temp)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'put_variable_3dCHAR', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, temp(1), len=str_len)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, temp(2), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, temp(3), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in put 3dCHAR'
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'put_variable_3dCHAR', f%filename)
       
       do i=1, n2
       do j=1, n1
          ierr = nf90_put_var(f%ncid, var_id, field(j,i), count=(/str_len/))
-         if (ierr /= NF90_NOERR) then
-            write(0,*) '*********************************************************************************'
-            write(0,*) 'Error putting variable '//trim(var_name)//' in put 3dCHAR'
-            write(0,*) 'ierr = ', ierr
-            write(0,*) '*********************************************************************************'
-         end if  
+         if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_put_var', .true., 'put_variable_3dCHAR', f%filename)
       end do
       end do
    end subroutine put_variable_3dCHAR
+
+
+
+!****************************************************************************!
+!                                                                            !
+!  Routines to get a variable data of type int from a netcdf file.           ! 
+!                                                                            !
+!****************************************************************************!
+
 
    subroutine get_variable_1dINT(f, var_name, field)
       implicit none
@@ -1534,41 +1162,19 @@ module mpas_file_manip
       integer, dimension(1) :: dim_ids
 
       !if (associated(field)) deallocate(field)
-      
+
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_1dINT', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_1dINT', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_1dINT', f%filename)
 
       allocate(field(n))
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1/), count = (/n/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_1dINT', f%filename)
       
    end subroutine get_variable_1dINT
 
@@ -1583,49 +1189,23 @@ module mpas_file_manip
       integer, dimension(2) :: dim_ids
 
       !if (associated(field)) deallocate(field)
-      
+
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_2dINT', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_2dINT', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_2dINT', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_2dINT', f%filename)
 
       allocate(field(n1, n2))
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1/), count = (/n1, n2/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_2dINT', f%filename)
+      
       
    end subroutine get_variable_2dINT
 
@@ -1642,57 +1222,35 @@ module mpas_file_manip
       !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_3dINT', f%filename)
+
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_3dINT', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_3dINT', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(2), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_3dINT', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(3), len=n3)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(3), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_3dINT', f%filename)
 
       allocate(field(n1, n2, n3))
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1,1/), count = (/n1, n2, n3/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_3dINT', f%filename)
       
    end subroutine get_variable_3dINT
+
+
+
+!****************************************************************************!
+!                                                                            !
+!  Routines to get a variable data of type real from a netcdf file.          ! 
+!                                                                            !
+!****************************************************************************!
+
 
    subroutine get_variable_1dREAL(f, var_name, field)
       implicit none
@@ -1716,32 +1274,14 @@ module mpas_file_manip
       end if
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids, xtype=xtype)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
-
-      if (xtype .ne. NF90_DOUBLE) write (0,*) "var "//trim(var_name)//" is not a double"
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_1dREAL', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_1dREAL', f%filename)
 
       allocate(field(n))
       ierr = nf90_get_var(f%ncid, var_id, field, count = (/n/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_1dREAL', f%filename)
       
    end subroutine get_variable_1dREAL
 
@@ -1758,47 +1298,18 @@ module mpas_file_manip
       !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_2dREAL', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_2dREAL', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_2dREAL', f%filename)
 
       allocate(field(n1, n2))
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1/), count = (/n1, n2/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_2dREAL', f%filename)
       
    end subroutine get_variable_2dREAL
 
@@ -1815,57 +1326,30 @@ module mpas_file_manip
       !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_3dREAL', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_3dREAL', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(2), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(3), len=n3)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(3), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_3dREAL', f%filename)
 
       allocate(field(n1, n2, n3))
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1,1/), count = (/n1, n2, n3/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_3dREAL', f%filename)
       
    end subroutine get_variable_3dREAL
+
+
+
+!****************************************************************************!
+!                                                                            !
+!  Routines to get a variable data of type char from a netcdf file.          ! 
+!                                                                            !
+!****************************************************************************!
+
 
    subroutine get_variable_1dCHAR(f, var_name, field)
       implicit none
@@ -1877,40 +1361,16 @@ module mpas_file_manip
       integer :: var_id, ierr, dimid, strlen
 
       ierr = nf90_inq_dimid(f%ncid, 'StrLen', dimid)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimID of StrLen in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_dimid', .true., 'get_variable_1dCHAR', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dimid, len=strlen)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring StrLen in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_1dCHAR', f%filename)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_1dCHAR', f%filename)
 
       ierr = nf90_get_var(f%ncid, var_id, field(1:strlen), start=(/1/), count=(/strlen/), stride=(/1/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_1dCHAR', f%filename)
 
    end subroutine get_variable_1dCHAR
 
@@ -1927,49 +1387,19 @@ module mpas_file_manip
       !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_2dCHAR', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_2dCHAR', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_2dCHAR', f%filename)
 
       allocate(field(n2))
       field(:) = ' '
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1/), count = (/n1, n2/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
-
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_2dCHAR', f%filename)
       
    end subroutine get_variable_2dCHAR
 
@@ -1985,56 +1415,20 @@ module mpas_file_manip
 
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring varID of '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inq_varid', .true., 'get_variable_3dCHAR', f%filename)
 
       ierr = nf90_inquire_variable(f%ncid, var_id, dimids=dim_ids)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if 
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_variable', .true., 'get_variable_3dCHAR', f%filename)
 
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(1), len=n1)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(1), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(2), len=n2)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(2), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
-
       ierr = nf90_inquire_dimension(f%ncid, dim_ids(3), len=n3)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring dimension with id ', dim_ids(3), ' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_inquire_dimension', .true., 'get_variable_3dCHAR', f%filename)
 
       allocate(field(n2, n3))
       field(:,:) = ' '
       ierr = nf90_get_var(f%ncid, var_id, field, start=(/1,1,1/), count = (/n1, n2, n3/))
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error getting variable '//trim(var_name)//' in '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_var', .true., 'get_variable_3dCHAR', f%filename)
 
       
    end subroutine get_variable_3dCHAR
@@ -2047,15 +1441,11 @@ module mpas_file_manip
       real (kind=RKIND), intent(out) :: field
       integer :: ierr
       ierr = nf90_get_att(f%ncid, NF90_GLOBAL, trim(att_name), field)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error inquiring attribute '//trim(att_name)//' in file '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_get_att', .false., 'get_attribute_real')
    end subroutine get_attribute_REAL
    
+
+
    subroutine copy_attributes(ncin, ncout)
    ! TODO: find a way to copy all attributes from one file to another without
    ! knowing what they are. 
@@ -2085,23 +1475,41 @@ module mpas_file_manip
       end do
    end subroutine copy_attributes
 
-
    subroutine close_mpas_file(f)
       implicit none
-      
+
       type(ncfile) :: f
       integer :: ierr
 
       ierr = nf90_close(f%ncid)
-      if (ierr /= NF90_NOERR) then
-         write(0,*) '*********************************************************************************'
-         write(0,*) 'Error while closing NetCDF file '//f%filename
-         write(0,*) 'ierr = ', ierr
-         write(0,*) '*********************************************************************************'
-         stop
-      end if
+      if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_close', .true., 'close_mpas_file')
       call f%clean()
    end subroutine
+
+   subroutine handle_err(ierr, metname, abort, funcname, filename)
+      implicit none
+      integer :: ierr
+      character(len=*) :: metname
+      logical, optional :: abort
+      character(len=*), optional :: funcname, filename
+
+
+      write(0,*) '*********************************************************************************'
+      write(0,*) 'Error in netcdf method '//trim(metname)
+      write(0,*) 'ierr = ', ierr
+      if (present(funcname)) write(0,*) 'Function: '//trim(funcname)
+      if (present(filename)) write(0,*) 'Filename: '//trim(filename)
+      if (present(abort)) then
+         if(abort) write (0,*) 'Stopping Program'
+      end if
+      write(0,*) '*********************************************************************************'
+      if (present(abort)) then
+         if (abort) then
+            stop
+         end if
+      end if
+
+   end subroutine handle_err
 
 end module mpas_file_manip 
    

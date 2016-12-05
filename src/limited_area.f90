@@ -222,7 +222,7 @@
             call put_variable_1dINT(ncout, bdyMaskVertexLocal, 'indexToVertexID')
          else
             ierr = nf90_enddef(ncout%ncid)
-            if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_enddef', .true., 'main', f%filename)
+            if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_enddef', .true., 'main', ncout%filename)
          end if
       
 

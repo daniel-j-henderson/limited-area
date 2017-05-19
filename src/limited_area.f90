@@ -98,6 +98,9 @@
                                        latCell, lonCell, radius, cellsOnCell, nEdgesOnCell) 
       end if
 
+      deallocate(nEdgesOnCell)
+      deallocate(cellsOnCell)
+
       do i=1, nEdges
          if (bdyMaskCell(cellsOnEdge(1,i)) == UNMARKED) then
             bdyMaskEdge(i) = bdyMaskCell(cellsOnEdge(2,i))
@@ -107,6 +110,8 @@
             bdyMaskEdge(i) = min(bdyMaskCell(cellsOnEdge(2,i)), bdyMaskCell(cellsOnEdge(1,i)))
          end if
       end do
+
+      deallocate(cellsOnEdge)
 
       do i=1, nVertices
          do j=1, vertexDegree
@@ -118,6 +123,8 @@
             if (bdyMaskCell(cellsOnVertex(j,i)) < bdyMaskVertex(i)) bdyMaskVertex(i) = bdyMaskCell(cellsOnVertex(j,i))
          end do
       end do
+
+      deallocate(cellsOnVertex)
 
       call create_local_area_map(bdyMaskCell, cell_map, icell_map)
       call create_local_area_map(bdyMaskEdge, edge_map, iedge_map)
@@ -225,6 +232,9 @@
             if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_enddef', .true., 'main', ncout%filename)
          end if
       
+         deallocate(icell_map)
+         deallocate(iedge_map)
+         deallocate(ivertex_map)
 
          write (0,*) "Closing up the new file..."
 

@@ -500,7 +500,9 @@ module mpas_file_manip
 
             allocate(newfield_1dINT(size(map)))
             call compact_field_1dINT(field_1dINT, newfield_1dINT, map)
+            deallocate(field_1dINT)
             call put_variable_1dINT(ncout, newfield_1dINT, var_name)
+            deallocate(newfield_1dINT)
          case(2)
             call get_variable_2dINT(ncin, var_name, field_2dINT)
             dimlens = shape(field_2dINT)
@@ -539,7 +541,9 @@ module mpas_file_manip
                return
             end if
 
+            deallocate(field_2dINT)
             call put_variable_2dINT(ncout, newfield_2dINT, var_name)
+            deallocate(newfield_2dINT)
          case(3)
             call get_variable_3dINT(ncin, var_name, field_3dINT)
             dimlens = shape(field_3dINT)
@@ -577,7 +581,9 @@ module mpas_file_manip
                call compact_field_3dINT(field_3dINT, newfield_3dINT, map)
             end if
 
+            deallocate(field_3dINT)
             call put_variable_3dINT(ncout, newfield_3dINT, var_name)
+            deallocate(newfield_3dINT)
          case default 
             write (0,*) "Error in case for copy data mode"
          end select
@@ -599,7 +605,9 @@ module mpas_file_manip
 
             allocate(newfield_1dREAL(size(map)))
             call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, map)
+            deallocate(field_1dREAL)
             call put_variable_1dREAL(ncout, newfield_1dREAL, trim(var_name))
+            deallocate(newfield_1dREAL)
          case(2)
             call get_variable_2dREAL(ncin, var_name, field_2dREAL)
             dimlens = shape(field_2dREAL)
@@ -636,7 +644,9 @@ module mpas_file_manip
                allocate(newfield_2dREAL(dimlens(1), size(map)))
                call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
             end if
+            deallocate(field_2dREAL)
             call put_variable_2dREAL(ncout, newfield_2dREAL, var_name)
+            deallocate(newfield_2dREAL)
          case(3)
             call get_variable_3dREAL(ncin, var_name, field_3dREAL)
             dimlens = shape(field_3dREAL)
@@ -673,7 +683,9 @@ module mpas_file_manip
                allocate(newfield_3dREAL(dimlens(1), dimlens(2), size(map)))
                call compact_field_3dREAL(field_3dREAL, newfield_3dREAL, map)
             end if
+            deallocate(field_3dREAL)
             call put_variable_3dREAL(ncout, newfield_3dREAL, var_name)
+            deallocate(newfield_3dREAL)
          case default 
             write (0,*) "Error in case for copy data mode"
          end select
@@ -872,6 +884,7 @@ module mpas_file_manip
             call compact_field_1dINT(field_1dINT, newfield_1dINT, vertex_map)
             call put_variable_1dINT(ncout, newfield_1dINT, static_vars_1dINT(i))
          end if 
+         deallocate(field_1dINT)
          deallocate(newfield_1dINT)
 
       end do
@@ -903,6 +916,7 @@ module mpas_file_manip
 
          allocate(newfield_2dINT(dimensions(1), size(map)))
          call compact_field_2dINT(field_2dINT, newfield_2dINT, map)
+         deallocate(field_2dINT)
          call reindex_field_2dINT(newfield_2dINT, imap)
          call put_variable_2dINT(ncout, newfield_2dINT, static_vars_2dINT(i))
          deallocate(newfield_2dINT)
@@ -924,6 +938,7 @@ module mpas_file_manip
             call compact_field_1dREAL(field_1dREAL, newfield_1dREAL, vertex_map)
             call put_variable_1dREAL(ncout, newfield_1dREAL, static_vars_1dREAL(i))
          end if 
+         deallocate(field_1dREAL)
          deallocate(newfield_1dREAL)
       end do
 
@@ -946,6 +961,7 @@ module mpas_file_manip
          allocate(newfield_2dREAL(dimensions(1), size(map)))
          call compact_field_2dREAL(field_2dREAL, newfield_2dREAL, map)
 
+         deallocate(field_2dREAL)
          call put_variable_2dREAL(ncout, newfield_2dREAL, static_vars_2dREAL(i))
          deallocate(newfield_2dREAL)
       end do

@@ -318,7 +318,7 @@ module mpas_file_manip
          end if
 
       case('CREATE')
-         ierr = nf90_create(f%filename, NF90_CLOBBER, f%ncid)
+         ierr = nf90_create(f%filename, NF90_HDF5, f%ncid)
          if (ierr /= NF90_NOERR) call handle_err(ierr, 'nf90_create', .true., 'open_mpas_file', f%filename)
 
       case default
@@ -1323,6 +1323,7 @@ module mpas_file_manip
       integer :: var_id, n1, n2, n3, ierr
       integer, dimension(3) :: dim_ids
 
+      write(0,*) 'Getting variable '//trim(var_name)
       !if (associated(field)) deallocate(field)
       
       ierr = nf90_inq_varid(f%ncid, var_name, var_id)
